@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Copilot Jurídico | Interface Web</title>
+  <style>
+    :root {
+      --bg: #f2ecde;
+      --card: #fffdf8;
+      --ink: #1f2937;
+      --muted: #5b6472;
+      --accent: #0f766e;
+      --danger: #b91c1c;
+      --border: #d6c9ab;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Merriweather", "Palatino Linotype", "Book Antiqua", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 10%, #e8d8b8 0%, transparent 30%),
+        radial-gradient(circle at 90% 15%, #cbe7dd 0%, transparent 28%),
+        var(--bg);
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 8px 20px rgba(34, 24, 6, 0.08);
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-family: "Bebas Neue", "Franklin Gothic Medium", "Arial Narrow", sans-serif;
+      letter-spacing: 0.04em;
+      font-size: clamp(2rem, 4vw, 2.8rem);
+      line-height: 1;
+    }
+    p { margin: 0; color: var(--muted); }
+    form {
+      margin-top: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 0.95rem;
+      color: var(--ink);
+    }
+    input[type="file"], select {
+      width: 100%;
+      border: 1px solid #b8b1a1;
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff;
+      font: inherit;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 16px;
+      color: white;
+      background: linear-gradient(135deg, #0f766e 0%, #0e9f6e 100%);
+      font-family: "Bebas Neue", "Franklin Gothic Medium", "Arial Narrow", sans-serif;
+      letter-spacing: 0.06em;
+      font-size: 1.05rem;
+      cursor: pointer;
+    }
+    .alert {
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.92rem;
+    }
+    .alert.error {
+      background: #fee2e2;
+      border: 1px solid #fecaca;
+      color: var(--danger);
+    }
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 10px 0 14px;
+    }
+    .pill {
+      background: #f4f1e8;
+      border: 1px solid #ddd3bd;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.9rem;
+    }
+    .pill b {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 3px;
+    }
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .links a {
+      text-decoration: none;
+      border: 1px solid #0f766e;
+      color: #0f766e;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      background: #edfaf7;
+    }
+    pre {
+      margin: 0;
+      background: #1d2430;
+      color: #e8f0ff;
+      border-radius: 10px;
+      padding: 14px;
+      overflow: auto;
+      font-size: 0.85rem;
+      line-height: 1.45;
+      max-height: 420px;
+    }
+    @media (max-width: 820px) {
+      .grid, .meta { grid-template-columns: 1fr; }
+      body { padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>Copilot Jurídico</h1>
+      <p>Interface web para processar recurso + acórdão e gerar minuta de admissibilidade.</p>
+
+      {% if error %}
+      <div class="alert error" style="margin-top:12px;">{{ error }}</div>
+      {% endif %}
+
+      <form method="post" action="/processar" enctype="multipart/form-data">
+        <label>
+          PDF do recurso
+          <input type="file" name="recurso_pdf" accept="application/pdf" required>
+        </label>
+        <label>
+          PDF do acórdão
+          <input type="file" name="acordao_pdf" accept="application/pdf" required>
+        </label>
+        <div class="grid">
+          <label>
+            Modelo
+            <select name="modelo">
+              <option value="gpt-4o" {% if default_model == "gpt-4o" %}selected{% endif %}>gpt-4o</option>
+              <option value="gpt-4o-mini" {% if default_model == "gpt-4o-mini" %}selected{% endif %}>gpt-4o-mini</option>
+            </select>
+          </label>
+          <label>
+            Formato da minuta
+            <select name="formato">
+              <option value="md">Markdown (.md)</option>
+              <option value="docx">Word (.docx)</option>
+            </select>
+          </label>
+        </div>
+        <button type="submit">Processar Documentos</button>
+      </form>
+    </section>
+
+    {% if result %}
+    <section class="card">
+      <h2 style="margin:0 0 8px; font-family:'Bebas Neue','Franklin Gothic Medium','Arial Narrow',sans-serif; letter-spacing:0.04em;">Resultado</h2>
+      <div class="meta">
+        <div class="pill"><b>Decisão</b>{{ result.decisao }}</div>
+        <div class="pill"><b>Tokens</b>{{ result.tokens }}</div>
+        <div class="pill"><b>Custo estimado (USD)</b>{{ '%.4f'|format(result.custo) }}</div>
+        <div class="pill"><b>Tempo (s)</b>{{ '%.1f'|format(result.tempo) }}</div>
+      </div>
+      <div class="links">
+        <a href="/download?path={{ result.arquivo_minuta|urlencode }}">Baixar minuta</a>
+        <a href="/download?path={{ result.arquivo_auditoria|urlencode }}">Baixar auditoria</a>
+      </div>
+      <pre>{{ result.preview }}</pre>
+    </section>
+    {% endif %}
+  </main>
+</body>
+</html>

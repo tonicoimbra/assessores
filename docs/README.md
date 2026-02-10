@@ -14,6 +14,8 @@
 | [padroes-desenvolvimento.md](padroes-desenvolvimento.md) | Padrões de código, convenções e regras do projeto |
 | [estrutura-projeto.md](estrutura-projeto.md) | Estrutura de diretórios e organização de arquivos |
 | [glossario.md](glossario.md) | Termos jurídicos e técnicos usados no projeto |
+| [deploy.md](deploy.md) | Opções de deploy local, VPS (Contabo) e integração com n8n |
+| [prompt-refinement-sprint7.md](prompt-refinement-sprint7.md) | Evidências e ajustes de prompt realizados na Sprint 7.1 |
 
 ---
 
