@@ -63,18 +63,37 @@ echo ""
 
 # 5. GIT PUSH
 echo "📤 Enviando para Hugging Face..."
-if git push space main; then
-    echo ""
-    echo -e "${GREEN}✅ SUCESSO! Deploy enviado.${NC}"
-    echo "Acompanhe o build em: $REMOTE_URL"
-else
-    echo ""
-    echo "⚠️ Falha no push para 'main'. Tentando 'master:main'..."
-    if git push space master:main; then
+
+push_success() {
+    if git push space main; then
+        echo ""
         echo -e "${GREEN}✅ SUCESSO! Deploy enviado.${NC}"
         echo "Acompanhe o build em: $REMOTE_URL"
-    else
-        echo -e "${RED}❌ FALHA NO DEPLOY.${NC}"
-        echo "Verifique suas credenciais (TOKEN) e permissões."
+        return 0
     fi
+    return 1
+}
+
+if ! push_success; then
+    echo ""
+    echo "⚠️ Falha no push inicial. O remoto pode ter alterações (ex: README criado automaticamente)."
+    echo "🔄 Tentando sincronizar (git pull --rebase space main)..."
+    
+    if git pull space main --rebase; then
+        echo "✅ Sincronizado com sucesso."
+        echo "📤 Tentando enviar novamente..."
+        if push_success; then
+            exit 0
+        fi
+    else
+        echo -e "${RED}❌ Conflito na sincronização.${NC}"
+        echo "Tente resolver manualmente: git pull space main --rebase"
+    fi
+
+    echo ""
+    echo -e "${RED}❌ FALHA FINAL NO DEPLOY.${NC}"
+    echo "Verifique:"
+    echo "1. Se voce usou o TOKEN (não a senha)."
+    echo "2. Se o Token tem permissão 'WRITE'."
+    exit 1
 fi
