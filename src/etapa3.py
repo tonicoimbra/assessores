@@ -210,6 +210,7 @@ def executar_etapa3(
     resultado_etapa2: ResultadoEtapa2,
     texto_acordao: str,
     prompt_sistema: str,
+    modelo_override: str | None = None,
 ) -> ResultadoEtapa3:
     """
     Execute Stage 3: generate admissibility decision draft.
@@ -255,7 +256,10 @@ def executar_etapa3(
     )
 
     # 5.1.3 — Call LLM (use hybrid model routing for draft generation)
-    model = get_model_for_task(TaskType.DRAFT_GENERATION)
+    if modelo_override:
+        model = modelo_override
+    else:
+        model = get_model_for_task(TaskType.DRAFT_GENERATION)
     logger.info("🔄 Executando Etapa 3 — Geração da Minuta de Admissibilidade (modelo: %s)...", model)
     tokens_pre = estimar_tokens(user_message)
     response = chamar_llm(

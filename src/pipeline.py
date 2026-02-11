@@ -244,8 +244,9 @@ class PipelineAdmissibilidade:
             executar_fn = executar_etapa1_com_chunking if ENABLE_CHUNKING else executar_etapa1
 
             try:
+                # Pass user selected model as override
                 estado.resultado_etapa1 = executar_fn(
-                    texto_recurso, self.prompt_sistema
+                    texto_recurso, self.prompt_sistema, modelo_override=self.modelo
                 )
             except TokenBudgetExceededError:
                 logger.warning("⏳ Orçamento de tokens excedido na Etapa 1. Aguardando 60s para reset...")
@@ -317,6 +318,7 @@ class PipelineAdmissibilidade:
                     estado.resultado_etapa2,
                     texto_acordao,
                     self.prompt_sistema,
+                    modelo_override=self.modelo,
                 )
             except TokenBudgetExceededError:
                 logger.warning("⏳ Orçamento de tokens excedido na Etapa 3. Aguardando 60s para reset...")
@@ -327,6 +329,7 @@ class PipelineAdmissibilidade:
                     estado.resultado_etapa2,
                     texto_acordao,
                     self.prompt_sistema,
+                    modelo_override=self.modelo,
                 )
 
             self.metricas["tempo_etapa3"] = time.time() - t0

@@ -241,6 +241,7 @@ ETAPA1_USER_INSTRUCTION = (
 def executar_etapa1(
     texto_recurso: str,
     prompt_sistema: str,
+    modelo_override: str | None = None,
 ) -> ResultadoEtapa1:
     """
     Execute Stage 1: extract structured data from appeal petition.
@@ -260,7 +261,10 @@ def executar_etapa1(
     user_message = ETAPA1_USER_INSTRUCTION + texto_recurso
 
     # 3.1.3 Call LLM (use hybrid model routing for legal analysis)
-    model = get_model_for_task(TaskType.LEGAL_ANALYSIS)
+    if modelo_override:
+        model = modelo_override
+    else:
+        model = get_model_for_task(TaskType.LEGAL_ANALYSIS)
     logger.info("🔄 Executando Etapa 1 — Análise da Petição do Recurso (modelo: %s)...", model)
     response = chamar_llm(
         system_prompt=prompt_sistema,
