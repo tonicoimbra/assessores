@@ -21,5 +21,5 @@ RUN useradd -m appuser \
 
 USER appuser
 
-# Rodar o servidor WEB
-CMD ["python", "src/web_app.py"]
+# Rodar o servidor WEB como módulo para corrigir imports
+CMD ["python", "-m", "src.web_app"]
