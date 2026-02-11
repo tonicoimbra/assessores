@@ -1,6 +1,6 @@
 import os
 from dotenv import dotenv_values
-from huggingface_hub import HfApi, create_repo_secret
+from huggingface_hub import HfApi
 import sys
 
 def upload_secrets(repo_id, token):
@@ -19,14 +19,11 @@ def upload_secrets(repo_id, token):
         if not value:
             continue
         try:
-            # No Hugging Face, 'secrets' são para chaves de API
-            # 'variables' são para configs públicas. Vamos subir tudo como Secret por segurança.
-            create_repo_secret(
+            # Usar o método correto da HfApi para Spaces
+            api.add_space_secret(
                 repo_id=repo_id,
-                name=key,
-                value=value,
-                repo_type="space",
-                token=token
+                key=key,
+                value=value
             )
             print(f"✅ {key} enviado.")
             success_count += 1
