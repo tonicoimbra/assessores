@@ -19,6 +19,7 @@ from src.config import (
     OPENROUTER_API_KEY,
     OPENROUTER_BASE_URL,
     TEMPERATURE,
+    GOOGLE_API_KEY,
 )
 
 logger = logging.getLogger("copilot_juridico")
@@ -81,28 +82,46 @@ class TokenTracker:
 # Global token tracker
 token_tracker = TokenTracker()
 
-# Lazy-initialized client
-_client: OpenAI | None = None
+# Global clients for reuse
+_client = None
+_google_client = None
 
 
-def _get_client() -> OpenAI:
-    """Get or create LLM client (lazy initialization). Supports OpenAI and OpenRouter."""
-    global _client
-    if _client is None:
-        if LLM_PROVIDER == "openrouter":
+def _get_client(model_name: str | None = None) -> OpenAI:
+    """
+    Get the appropriate OpenAI client based on the requested model or default provider.
+    Handles distinct clients for Google (Gemini) and OpenRouter (DeepSeek/etc).
+    """
+    global _client, _google_client
+
+    # 1. Google AI Studio (Direct)
+    # Only use direct client if API Key is present AND model starts with google/
+    if model_name and model_name.startswith("google/") and GOOGLE_API_KEY:
+        if _google_client is None:
+            _google_client = OpenAI(
+                api_key=GOOGLE_API_KEY,
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                timeout=LLM_TIMEOUT,
+            )
+        return _google_client
+
+    # 2. OpenRouter (Default for everything else if configured)
+    if LLM_PROVIDER == "openrouter":
+        if _client is None:
             _client = OpenAI(
                 api_key=OPENROUTER_API_KEY,
                 base_url=OPENROUTER_BASE_URL,
                 timeout=LLM_TIMEOUT,
                 default_headers={
                     "HTTP-Referer": "https://copilot-juridico.tjpr.jus.br",
-                    "X-Title": "Copilot Jurídico TJPR",
+                    "X-Title": "Copilot Juridico TJPR",
                 },
             )
-            logger.info("🔗 LLM Provider: OpenRouter (%s)", OPENROUTER_BASE_URL)
-        else:
-            _client = OpenAI(api_key=OPENAI_API_KEY, timeout=LLM_TIMEOUT)
-            logger.info("🔗 LLM Provider: OpenAI (direct)")
+        return _client
+
+    # 3. OpenAI (Fallback)
+    if _client is None:
+        _client = OpenAI(api_key=OPENAI_API_KEY, timeout=LLM_TIMEOUT)
     return _client
 
 
@@ -155,10 +174,17 @@ def _chamar_llm_raw(
         LLMError: After all retries exhausted.
         LLMTruncatedResponseError: If response was truncated.
     """
-    client = _get_client()
     temp = temperature if temperature is not None else TEMPERATURE
     tokens = max_tokens or MAX_TOKENS
     modelo = model or OPENAI_MODEL
+    
+    # Get client based on the requested model (Google vs OpenRouter vs OpenAI)
+    client = _get_client(model_name=modelo)
+
+    # If using Google Direct, strip the 'google/' prefix from model name
+    # The API expects 'gemini-2.0-flash-001', not 'google/gemini-2.0-flash-001'
+    if modelo.startswith("google/") and GOOGLE_API_KEY:
+        modelo = modelo.replace("google/", "")
 
     messages = [
         {"role": "system", "content": system_prompt},

@@ -97,6 +97,7 @@ class MetadadosPipeline(BaseModel):
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+    modelos_utilizados: dict[str, str] = Field(default_factory=dict)
 
 
 class EstadoPipeline(BaseModel):

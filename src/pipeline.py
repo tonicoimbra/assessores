@@ -12,7 +12,11 @@ from src.config import (
     ENABLE_PARALLEL_ETAPA2,
     OPENAI_MODEL,
     PROMPTS_DIR,
+    MODEL_LEGAL_ANALYSIS,
+    MODEL_DRAFT_GENERATION,
 )
+
+
 from src.etapa1 import executar_etapa1, executar_etapa1_com_chunking
 from src.etapa2 import (
     executar_etapa2,
@@ -227,6 +231,8 @@ class PipelineAdmissibilidade:
         if estado.resultado_etapa1 is None:
             self._notify("Etapa 1 — Analisando recurso...", 3, total_steps)
             t0 = time.time()
+            # Record model used
+            estado.metadata.modelos_utilizados["Etapa 1"] = MODEL_LEGAL_ANALYSIS
 
             # Import TokenBudgetExceededError for retry handling
             try:
@@ -256,6 +262,8 @@ class PipelineAdmissibilidade:
         if estado.resultado_etapa2 is None:
             self._notify("Etapa 2 — Analisando acórdão...", 4, total_steps)
             t0 = time.time()
+            # Record model used
+            estado.metadata.modelos_utilizados["Etapa 2"] = MODEL_LEGAL_ANALYSIS
 
             # Import TokenBudgetExceededError for retry handling
             try:
@@ -291,6 +299,8 @@ class PipelineAdmissibilidade:
         if estado.resultado_etapa3 is None:
             self._notify("Etapa 3 — Gerando minuta...", 5, total_steps)
             t0 = time.time()
+            # Record model used
+            estado.metadata.modelos_utilizados["Etapa 3"] = MODEL_DRAFT_GENERATION
 
             # Import TokenBudgetExceededError for retry handling
             try:

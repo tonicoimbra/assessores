@@ -28,6 +28,9 @@ TEMPERATURE: float = float(os.getenv("TEMPERATURE", "0.0"))
 OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
+# Google AI Studio API (Gemini Direct)
+GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
+
 # LLM call settings
 LLM_TIMEOUT: int = int(os.getenv("LLM_TIMEOUT", "120"))
 LLM_MAX_RETRIES: int = int(os.getenv("LLM_MAX_RETRIES", "3"))
@@ -44,15 +47,17 @@ TOKEN_BUDGET_RATIO: float = float(os.getenv("TOKEN_BUDGET_RATIO", "0.7"))  # Use
 CHUNK_OVERLAP_TOKENS: int = int(os.getenv("CHUNK_OVERLAP_TOKENS", "500"))
 MAX_CONTEXT_TOKENS: int = int(os.getenv("MAX_CONTEXT_TOKENS", "25000"))  # Respect TPM limit of 30k/min
 
-# Rate limits (tokens per minute)
+# --- Rate Limiting (Tokens per minute per model) ---
 RATE_LIMIT_TPM: dict[str, int] = {
     # OpenAI
     "gpt-4o": 30_000,
     "gpt-4o-mini": 200_000,
+    "o1-preview": 30_000, # Assuming this is an OpenAI model or similar
     # OpenRouter (generous limits)
     "deepseek/deepseek-r1": 100_000,
-    "deepseek/deepseek-chat-v3-0324:free": 50_000,
-    "google/gemini-2.0-flash-001": 1_000_000,
+    "deepseek/deepseek-chat-v3-0324:free": 40_000, # Adjusted from 50k to 40k
+    "google/gemini-2.0-flash-001": 2_000_000, # Google AI Studio (High limit)
+    "google/gemini-2.0-flash-lite-preview-02-05:free": 1_000_000,
     "google/gemini-2.5-flash-preview": 1_000_000,
     "qwen/qwen-2.5-72b-instruct": 100_000,
     "anthropic/claude-3.5-sonnet": 80_000,
