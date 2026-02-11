@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Sistema de análise automatizada de recursos jurídicos (Recurso Especial e Extraordinário) do TJPR (Tribunal de Justiça do Paraná). O sistema recebe PDFs fracionados de petições recursais e acórdãos, classifica automaticamente cada documento, executa um pipeline sequencial de 3 etapas via OpenAI API (GPT-4o) e produz uma minuta formal de decisão de admissibilidade.
 
+**Contexto Jurídico:** O sistema analisa recursos judiciais destinados aos tribunais superiores (STJ/STF), verificando requisitos de admissibilidade conforme legislação processual civil brasileira. O output é uma minuta de decisão monocrática formatada segundo padrões do TJPR.
+
 **Stack:** Python 3.11+, OpenAI API (GPT-4o / GPT-4o-mini), PyMuPDF + pdfplumber, Pydantic, Flask, tiktoken, pytest
 
 **Documentação completa:** `docs/README.md` (índice) → `docs/visao-geral.md`, `docs/arquitetura.md`, `docs/padroes-desenvolvimento.md`, etc.
@@ -121,8 +123,11 @@ python -m pytest -k "test_extraction"         # Filtrar por nome
 python -m src.main status
 python -m src.main limpar
 
-# Web API
-python -m src.web_app
+# Web API (Flask)
+python -m src.web_app                         # Inicia servidor na porta 7860
+curl -X POST http://localhost:7860/upload \  # Exemplo de upload
+  -F "recurso=@recurso.pdf" \
+  -F "acordao=@acordao.pdf"
 ```
 
 ## Environment Variables
@@ -278,8 +283,19 @@ Gerado em `outputs/` (ou `--saida` override):
 
 ## Integration Points
 
-- **CLI:** Interface principal via `main.py`
-- **Web API:** `web_app.py` fornece endpoint Flask para integrações externas (n8n, webhooks)
+- **CLI:** Interface principal via `main.py` — ideal para processamento batch local
+- **Web API:** `web_app.py` fornece endpoints Flask para integrações externas:
+  - `POST /upload` — recebe PDFs e retorna minuta processada
+  - `GET /status` — consulta status de processamento
+  - Integração com n8n via webhook para automação de fluxos
 - **Docker:** `Dockerfile` + `docker-compose.yml` para deploy containerizado
 - **State files:** JSON parseável por ferramentas externas para monitoramento/auditoria
 - **Output files:** Formato `.md` facilmente convertível para outros formatos via pandoc
+
+## Development Workflow
+
+1. **Local development:** Usar `.venv` e rodar via CLI para iteração rápida
+2. **Prompt refinement:** Editar `prompts/SYSTEM_PROMPT.md` → testar com caso real → validar qualidade → commit
+3. **Testing:** Rodar suite completa antes de PR: `python -m pytest --cov=src`
+4. **Integration testing:** Usar PDFs reais de `tests/fixtures/` ou casos anonimizados
+5. **Deployment:** Testar em container Docker antes de deploy para evitar problemas de ambiente

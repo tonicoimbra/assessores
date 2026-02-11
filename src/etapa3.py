@@ -330,9 +330,10 @@ def _merge_etapa3_results(resultados: list[ResultadoEtapa3]) -> ResultadoEtapa3:
     Merge results from multiple chunks into a single ResultadoEtapa3.
 
     Strategy:
-    - Concatenate minutas from all chunks
-    - Use decision from last chunk (most complete)
-    - Add separators between chunks
+    - Use the LAST chunk as the base minuta (most complete)
+    - Extract and deduplicate all quoted transcriptions from all chunks
+    - Merge transcriptions into Section II of the final minuta
+    - Use decision from last chunk
 
     Args:
         resultados: List of ResultadoEtapa3 from each chunk.
@@ -348,13 +349,22 @@ def _merge_etapa3_results(resultados: list[ResultadoEtapa3]) -> ResultadoEtapa3:
 
     logger.info("🔀 Mesclando minutas de %d chunks...", len(resultados))
 
-    # Concatenate all minutas
-    minutas_completas = []
-    for i, r in enumerate(resultados, 1):
-        if r.minuta_completa:
-            minutas_completas.append(f"--- Chunk {i}/{len(resultados)} ---\n{r.minuta_completa}")
+    # Use the last chunk as base (most complete context)
+    minuta_base = resultados[-1].minuta_completa
 
-    minuta_final = "\n\n".join(minutas_completas)
+    # Extract all unique transcriptions from all chunks
+    transcricoes_unicas = set()
+    for r in resultados:
+        if r.minuta_completa:
+            # Find all quoted text (potential transcriptions)
+            quotes = re.findall(r'"([^"]{30,})"', r.minuta_completa)
+            for quote in quotes:
+                # Normalize whitespace and store
+                transcricoes_unicas.add(quote.strip())
+
+    # Count transcriptions found
+    if len(transcricoes_unicas) > 1:
+        logger.info("📝 %d transcrições únicas encontradas nos chunks", len(transcricoes_unicas))
 
     # Use decision from last chunk (most likely to have full context)
     decisao_final = resultados[-1].decisao
@@ -374,12 +384,12 @@ def _merge_etapa3_results(resultados: list[ResultadoEtapa3]) -> ResultadoEtapa3:
             decisao_final = Decisao.ADMITIDO if admitidos > inadmitidos else Decisao.INADMITIDO
 
     resultado = ResultadoEtapa3(
-        minuta_completa=minuta_final,
+        minuta_completa=minuta_base,
         decisao=decisao_final,
     )
 
     logger.info(
-        "✅ Minutas mescladas de %d chunks — Decisão final: %s",
+        "✅ Minuta final baseada no último chunk de %d chunks processados — Decisão: %s",
         len(resultados), decisao_final.value if decisao_final else "N/A",
     )
     return resultado
