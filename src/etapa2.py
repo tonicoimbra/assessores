@@ -214,6 +214,7 @@ def executar_etapa2(
     texto_acordao: str,
     resultado_etapa1: ResultadoEtapa1,
     prompt_sistema: str,
+    modelo_override: str | None = None,
 ) -> ResultadoEtapa2:
     """
     Execute Stage 2: thematic analysis of the ruling.
@@ -222,6 +223,7 @@ def executar_etapa2(
         texto_acordao: Full text of the ruling (acórdão).
         resultado_etapa1: Stage 1 results for context.
         prompt_sistema: System prompt with general + Stage 2 rules.
+        modelo_override: Optional model to use instead of default.
 
     Returns:
         ResultadoEtapa2 with themes, conclusions, and obstacles.
@@ -250,7 +252,10 @@ def executar_etapa2(
     )
 
     # 4.1.3 — Call LLM (use hybrid model routing for legal analysis)
-    model = get_model_for_task(TaskType.LEGAL_ANALYSIS)
+    if modelo_override:
+        model = modelo_override
+    else:
+        model = get_model_for_task(TaskType.LEGAL_ANALYSIS)
     logger.info("🔄 Executando Etapa 2 — Análise Temática do Acórdão (modelo: %s)...", model)
     response = chamar_llm(
         system_prompt=prompt_sistema,
@@ -352,6 +357,7 @@ def executar_etapa2_com_chunking(
     texto_acordao: str,
     resultado_etapa1: ResultadoEtapa1,
     prompt_sistema: str,
+    modelo_override: str | None = None,
 ) -> ResultadoEtapa2:
     """
     Execute Stage 2 with automatic chunking for large documents.
@@ -363,6 +369,7 @@ def executar_etapa2_com_chunking(
         texto_acordao: Full text of the ruling (acórdão).
         resultado_etapa1: Stage 1 results for context.
         prompt_sistema: System prompt with general + Stage 2 rules.
+        modelo_override: Optional model to use instead of default.
 
     Returns:
         ResultadoEtapa2 with themes, conclusions, and obstacles.
@@ -370,7 +377,7 @@ def executar_etapa2_com_chunking(
     # Check if chunking is enabled
     if not ENABLE_CHUNKING:
         logger.debug("Chunking desabilitado — usando fluxo padrão")
-        return executar_etapa2(texto_acordao, resultado_etapa1, prompt_sistema)
+        return executar_etapa2(texto_acordao, resultado_etapa1, prompt_sistema, modelo_override=modelo_override)
 
     # Validate prerequisite
     validar_prerequisito_etapa1(resultado_etapa1)
@@ -394,7 +401,7 @@ def executar_etapa2_com_chunking(
     # If fits in one request, use standard flow
     if tokens_total <= limite_seguro:
         logger.debug("Documento cabe em uma requisição (%d tokens)", tokens_total)
-        return executar_etapa2(texto_acordao, resultado_etapa1, prompt_sistema)
+        return executar_etapa2(texto_acordao, resultado_etapa1, prompt_sistema, modelo_override=modelo_override)
 
     # Document is too large — apply chunking
     logger.warning(
@@ -421,7 +428,7 @@ def executar_etapa2_com_chunking(
         logger.info("🔄 Processando chunk %d/%d...", i, len(chunks))
 
         try:
-            resultado = executar_etapa2(chunk, resultado_etapa1, prompt_sistema)
+            resultado = executar_etapa2(chunk, resultado_etapa1, prompt_sistema, modelo_override=modelo_override)
             resultados_parciais.append(resultado)
 
         except Exception as e:
@@ -499,6 +506,7 @@ def executar_etapa2_paralelo(
     resultado_etapa1: ResultadoEtapa1,
     prompt_sistema: str,
     max_workers: int | None = None,
+    modelo_override: str | None = None,
 ) -> ResultadoEtapa2:
     """
     Execute Stage 2 with parallel theme processing.
@@ -547,9 +555,14 @@ def executar_etapa2_paralelo(
     )
 
     logger.info("🔄 Executando Etapa 2 com processamento paralelo...")
+    if modelo_override:
+        model = modelo_override
+    else:
+        model = get_model_for_task(TaskType.LEGAL_ANALYSIS)
     response = chamar_llm(
         system_prompt=prompt_sistema,
         user_message=user_message,
+        model=model,
     )
 
     # Parse to extract theme blocks
@@ -558,7 +571,7 @@ def executar_etapa2_paralelo(
     if not blocos:
         logger.warning("Nenhum tema identificado para processamento paralelo")
         # Fallback to sequential
-        return executar_etapa2(texto_acordao, resultado_etapa1, prompt_sistema)
+        return executar_etapa2(texto_acordao, resultado_etapa1, prompt_sistema, modelo_override=modelo_override)
 
     logger.info("📦 %d temas identificados. Processando em paralelo...", len(blocos))
 

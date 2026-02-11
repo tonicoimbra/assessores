@@ -283,14 +283,14 @@ class PipelineAdmissibilidade:
 
             try:
                 estado.resultado_etapa2 = executar_fn(
-                    texto_acordao, estado.resultado_etapa1, self.prompt_sistema
+                    texto_acordao, estado.resultado_etapa1, self.prompt_sistema, modelo_override=self.modelo
                 )
             except TokenBudgetExceededError:
                 logger.warning("⏳ Orçamento de tokens excedido na Etapa 2. Aguardando 60s para reset...")
                 time.sleep(60)
                 # Retry after wait
                 estado.resultado_etapa2 = executar_fn(
-                    texto_acordao, estado.resultado_etapa1, self.prompt_sistema
+                    texto_acordao, estado.resultado_etapa1, self.prompt_sistema, modelo_override=self.modelo
                 )
 
             self.metricas["tempo_etapa2"] = time.time() - t0
