@@ -54,6 +54,7 @@ RATE_LIMIT_TPM: dict[str, int] = {
     "deepseek/deepseek-chat-v3-0324:free": 50_000,
     "google/gemini-2.0-flash-001": 1_000_000,
     "google/gemini-2.5-flash-preview": 1_000_000,
+    "qwen/qwen-2.5-72b-instruct": 100_000,
     "anthropic/claude-3.5-sonnet": 80_000,
 }
 
