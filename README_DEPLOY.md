@@ -14,9 +14,27 @@ Este guia descreve como colocar o **Copilot Jurídico** no ar em plataformas que
     *   Template: **Blank**.
     *   Visibility: **Private** (recomendado para dados jurídicos).
 
-2.  **Arquivos:**
-    *   Faça upload de todo o conteúdo deste projeto para o repositório do Space (via Git ou Interface Web).
-    *   Certifique-se de que o `Dockerfile` está na raiz.
+2.  **Upload via Git (Terminal):**
+    *   No terminal do seu projeto:
+        ```bash
+        # 1. Instale o git (se não tiver) e configure seu usuário
+        git config --global user.email "seu@email.com"
+        git config --global user.name "Seu Nome"
+
+        # 2. Inicialize o repositório (se ainda não fez)
+        git init
+        git add .
+        git commit -m "Deploy inicial"
+
+        # 3. Adicione o remoto do Hugging Face
+        # (Substitua SEU_USUARIO e NOME_DO_SPACE)
+        git remote add space https://huggingface.co/spaces/SEU_USUARIO/copilot-juridico
+
+        # 4. Envie o código (vai pedir senha = seu TOKEN DE ACESSO do Hugging Face)
+        git push space main
+        # (Se der erro de branch, tente: git push space master:main)
+        ```
+    *   **Importante:** Ao pedir a senha, use um **Access Token** com permissão `WRITE` (crie em [hf.co/settings/tokens](https://huggingface.co/settings/tokens)), não sua senha de login.
 
 3.  **Configuração (Secrets):**
     *   Vá em **Settings** > **Variables and secrets**.
