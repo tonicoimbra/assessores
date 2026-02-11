@@ -21,5 +21,5 @@ RUN useradd -m appuser \
 
 USER appuser
 
-ENTRYPOINT ["python", "-m", "src.main"]
-CMD ["--help"]
+# Rodar o servidor WEB
+CMD ["python", "src/web_app.py"]
