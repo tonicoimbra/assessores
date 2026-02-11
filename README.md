@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Copilot Jurídico — Agente de Admissibilidade Recursal (TJPR)
 
 Sistema CLI em Python para análise de admissibilidade recursal (Recurso Especial e Extraordinário), com pipeline de 3 etapas e geração de minuta.
@@ -117,3 +118,16 @@ python -m pytest --cov=src
 - Deploy e operação: `docs/deploy.md`
 - Regras para colaboração: `CONTRIBUTING.md`
 - Backlog e progresso: `TASKS.md`
+=======
+---
+title: Ar
+emoji: 🐨
+colorFrom: purple
+colorTo: pink
+sdk: docker
+pinned: false
+license: mit
+---
+
+Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+>>>>>>> 7afcbda96d5303e68e34ad178befc1f9b48028c3
