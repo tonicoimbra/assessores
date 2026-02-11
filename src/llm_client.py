@@ -11,10 +11,13 @@ from src.config import (
     ENABLE_CACHING,
     ENABLE_RATE_LIMITING,
     LLM_MAX_RETRIES,
+    LLM_PROVIDER,
     LLM_TIMEOUT,
     MAX_TOKENS,
     OPENAI_API_KEY,
     OPENAI_MODEL,
+    OPENROUTER_API_KEY,
+    OPENROUTER_BASE_URL,
     TEMPERATURE,
 )
 
@@ -83,10 +86,23 @@ _client: OpenAI | None = None
 
 
 def _get_client() -> OpenAI:
-    """Get or create OpenAI client (lazy initialization)."""
+    """Get or create LLM client (lazy initialization). Supports OpenAI and OpenRouter."""
     global _client
     if _client is None:
-        _client = OpenAI(api_key=OPENAI_API_KEY, timeout=LLM_TIMEOUT)
+        if LLM_PROVIDER == "openrouter":
+            _client = OpenAI(
+                api_key=OPENROUTER_API_KEY,
+                base_url=OPENROUTER_BASE_URL,
+                timeout=LLM_TIMEOUT,
+                default_headers={
+                    "HTTP-Referer": "https://copilot-juridico.tjpr.jus.br",
+                    "X-Title": "Copilot Jurídico TJPR",
+                },
+            )
+            logger.info("🔗 LLM Provider: OpenRouter (%s)", OPENROUTER_BASE_URL)
+        else:
+            _client = OpenAI(api_key=OPENAI_API_KEY, timeout=LLM_TIMEOUT)
+            logger.info("🔗 LLM Provider: OpenAI (direct)")
     return _client
 
 
@@ -283,6 +299,9 @@ def chamar_llm_with_rate_limit(
 
             if cached:
                 logger.info("💾 Cache hit — pulando chamada LLM para economizar tokens e custo")
+                tokens_data = cached.get("tokens", {})
+                if isinstance(tokens_data, dict):
+                    cached["tokens"] = TokenUsage(**tokens_data)
                 return LLMResponse(**cached)
 
     # Call raw LLM function

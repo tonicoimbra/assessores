@@ -10,6 +10,7 @@ from src.config import (
 )
 from src.etapa1 import estimar_tokens, _verificar_contexto
 from src.llm_client import chamar_llm
+from src.model_router import TaskType, get_model_for_task
 from src.models import Decisao, ResultadoEtapa1, ResultadoEtapa2, ResultadoEtapa3
 
 logger = logging.getLogger("copilot_juridico")
@@ -253,12 +254,15 @@ def executar_etapa3(
         + texto_acordao_ctx
     )
 
-    # 5.1.3 — Call LLM
-    logger.info("🔄 Executando Etapa 3 — Geração da Minuta de Admissibilidade...")
+    # 5.1.3 — Call LLM (use hybrid model routing for draft generation)
+    model = get_model_for_task(TaskType.DRAFT_GENERATION)
+    logger.info("🔄 Executando Etapa 3 — Geração da Minuta de Admissibilidade (modelo: %s)...", model)
     tokens_pre = estimar_tokens(user_message)
     response = chamar_llm(
         system_prompt=prompt_sistema,
         user_message=user_message,
+        model=model,
+        max_tokens=4096,
     )
 
     logger.info(

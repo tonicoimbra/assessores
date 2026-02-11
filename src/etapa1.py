@@ -14,6 +14,7 @@ from src.config import (
     TOKEN_BUDGET_RATIO,
 )
 from src.llm_client import chamar_llm, chamar_llm_json
+from src.model_router import TaskType, get_model_for_task
 from src.models import ResultadoEtapa1
 
 logger = logging.getLogger("copilot_juridico")
@@ -258,11 +259,14 @@ def executar_etapa1(
     # 3.1.2 Mount user message
     user_message = ETAPA1_USER_INSTRUCTION + texto_recurso
 
-    # 3.1.3 Call LLM
-    logger.info("🔄 Executando Etapa 1 — Análise da Petição do Recurso...")
+    # 3.1.3 Call LLM (use hybrid model routing for legal analysis)
+    model = get_model_for_task(TaskType.LEGAL_ANALYSIS)
+    logger.info("🔄 Executando Etapa 1 — Análise da Petição do Recurso (modelo: %s)...", model)
     response = chamar_llm(
         system_prompt=prompt_sistema,
         user_message=user_message,
+        model=model,
+        max_tokens=2048,
     )
 
     # 3.3.4 Log estimated vs actual tokens

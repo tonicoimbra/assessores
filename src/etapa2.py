@@ -13,6 +13,7 @@ from src.config import (
 )
 from src.etapa1 import estimar_tokens, _verificar_contexto
 from src.llm_client import chamar_llm
+from src.model_router import TaskType, get_model_for_task
 from src.models import ResultadoEtapa1, ResultadoEtapa2, TemaEtapa2
 
 logger = logging.getLogger("copilot_juridico")
@@ -248,11 +249,14 @@ def executar_etapa2(
         + texto_acordao
     )
 
-    # 4.1.3 — Call LLM
-    logger.info("🔄 Executando Etapa 2 — Análise Temática do Acórdão...")
+    # 4.1.3 — Call LLM (use hybrid model routing for legal analysis)
+    model = get_model_for_task(TaskType.LEGAL_ANALYSIS)
+    logger.info("🔄 Executando Etapa 2 — Análise Temática do Acórdão (modelo: %s)...", model)
     response = chamar_llm(
         system_prompt=prompt_sistema,
         user_message=user_message,
+        model=model,
+        max_tokens=3000,
     )
 
     logger.info(
@@ -464,7 +468,8 @@ def _processar_tema_paralelo(
     logger.debug("🔄 Processando tema %d em paralelo...", tema_numero)
 
     try:
-        # Call LLM for detailed theme analysis
+        # Call LLM for detailed theme analysis (use hybrid model)
+        model = get_model_for_task(TaskType.LEGAL_ANALYSIS)
         response = chamar_llm(
             system_prompt=prompt_sistema,
             user_message=(
@@ -474,6 +479,8 @@ def _processar_tema_paralelo(
                 f"TEMA:\n{tema_texto}\n\n"
                 f"CONTEXTO DO ACÓRDÃO:\n{texto_acordao[:2000]}"
             ),
+            model=model,
+            max_tokens=2048,
         )
 
         # Parse the response

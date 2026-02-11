@@ -9,20 +9,39 @@ from uuid import uuid4
 from flask import Flask, render_template, request, send_file
 from werkzeug.utils import secure_filename
 
-from src.config import OPENAI_API_KEY, OUTPUTS_DIR
+from src.config import LLM_PROVIDER, OPENAI_API_KEY, OPENROUTER_API_KEY, OUTPUTS_DIR
 from src.pipeline import PipelineAdmissibilidade
 
-app = Flask(__name__, template_folder="../templates")
+app = Flask(
+    __name__,
+    template_folder="../templates",
+    static_folder="../static",
+    static_url_path="/static",
+)
 
 UPLOADS_DIR = OUTPUTS_DIR / "web_uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _get_api_key() -> str:
+    """Get active API key based on provider."""
+    if LLM_PROVIDER == "openrouter":
+        return OPENROUTER_API_KEY
+    return OPENAI_API_KEY
+
+
+def _get_default_model() -> str:
+    """Get default model based on provider."""
+    if LLM_PROVIDER == "openrouter":
+        return "deepseek/deepseek-r1"
+    return "gpt-4o"
+
+
 def _friendly_error(exc: Exception) -> str:
     """Map known errors to concise messages for UI."""
     msg = str(exc)
-    if "OPENAI_API_KEY" in msg or "api key" in msg.lower():
-        return "OPENAI_API_KEY ausente ou inválida."
+    if "api key" in msg.lower() or "API_KEY" in msg:
+        return "API Key ausente ou inválida. Configure no .env."
     if "pdf" in msg.lower():
         return f"Falha ao processar PDF: {msg}"
     return msg
@@ -35,25 +54,26 @@ def index():
         "web/index.html",
         result=None,
         error=None,
-        default_model="gpt-4o",
+        default_model=_get_default_model(),
     )
 
 
 @app.post("/processar")
 def processar():
     """Handle upload and execute pipeline."""
-    if not OPENAI_API_KEY:
+    if not _get_api_key():
+        provider_name = "OPENROUTER_API_KEY" if LLM_PROVIDER == "openrouter" else "OPENAI_API_KEY"
         return render_template(
             "web/index.html",
             result=None,
-            error="Configure OPENAI_API_KEY no arquivo .env antes de processar.",
-            default_model=request.form.get("modelo", "gpt-4o"),
+            error=f"Configure {provider_name} no arquivo .env antes de processar.",
+            default_model=request.form.get("modelo", _get_default_model()),
         ), 400
 
     recurso = request.files.get("recurso_pdf")
     acordao = request.files.get("acordao_pdf")
     formato = request.form.get("formato", "md")
-    modelo = request.form.get("modelo", "gpt-4o")
+    modelo = request.form.get("modelo", _get_default_model())
 
     if not recurso or not acordao:
         return render_template(

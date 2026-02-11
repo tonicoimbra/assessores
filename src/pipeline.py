@@ -96,8 +96,15 @@ def handle_pipeline_error(
 
 # GPT-4o pricing (USD per 1M tokens, as of 2024)
 PRICING = {
+    # OpenAI models
     "gpt-4o": {"input": 2.50, "output": 10.00},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+    # OpenRouter models
+    "deepseek/deepseek-r1": {"input": 0.55, "output": 2.19},
+    "deepseek/deepseek-chat-v3-0324:free": {"input": 0.00, "output": 0.00},
+    "google/gemini-2.0-flash-001": {"input": 0.10, "output": 0.40},
+    "google/gemini-2.5-flash-preview": {"input": 0.15, "output": 0.60},
+    "anthropic/claude-3.5-sonnet": {"input": 3.00, "output": 15.00},
 }
 
 

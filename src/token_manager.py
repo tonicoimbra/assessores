@@ -127,7 +127,7 @@ class TokenManager:
 class TextChunker:
     """Intelligent text chunking with semantic boundaries and overlap."""
 
-    def __init__(self, max_tokens: int = 100_000, overlap_tokens: int = 500):
+    def __init__(self, max_tokens: int = 20_000, overlap_tokens: int = 500):
         """
         Initialize chunker.
 

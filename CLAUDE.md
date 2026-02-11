@@ -4,169 +4,282 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Legal document analysis system for TJPR (Tribunal de Justiça do Paraná) that automates admissibility review of special appeals (Recurso Especial/Extraordinário). The system extracts data from legal PDFs, analyzes them using GPT-4o, and generates formal decision briefs.
+Sistema de análise automatizada de recursos jurídicos (Recurso Especial e Extraordinário) do TJPR (Tribunal de Justiça do Paraná). O sistema recebe PDFs fracionados de petições recursais e acórdãos, classifica automaticamente cada documento, executa um pipeline sequencial de 3 etapas via OpenAI API (GPT-4o) e produz uma minuta formal de decisão de admissibilidade.
 
-**Stack:** Python 3.11+, OpenAI API (GPT-4o), PyMuPDF + pdfplumber, Pydantic, pytest
+**Stack:** Python 3.11+, OpenAI API (GPT-4o / GPT-4o-mini), PyMuPDF + pdfplumber, Pydantic, Flask, tiktoken, pytest
+
+**Documentação completa:** `docs/README.md` (índice) → `docs/visao-geral.md`, `docs/arquitetura.md`, `docs/padroes-desenvolvimento.md`, etc.
 
 ## Core Architecture
 
-**3-Stage Sequential Pipeline:**
-1. **Etapa 1** (`etapa1.py`): Extract structured data from appeal petition (process number, parties, legal provisions violated, etc.)
-2. **Etapa 2** (`etapa2.py`): Thematic analysis of the lower court decision (acórdão), identifying legal themes, precedents, and procedural obstacles
-3. **Etapa 3** (`etapa3.py`): Generate formatted admissibility brief with cross-validation to prevent hallucination
+**Pipeline Sequencial de 3 Etapas:**
 
-**Orchestration:** `pipeline.py` coordinates the full flow with checkpoint/recovery support via `state_manager.py`.
+```
+PDFs (upload) → Extração de Texto → Classificação → Etapa 1 → 2 → 3 → Minuta Final
+     │                │                    │              │    │    │         │
+     ▼                ▼                    ▼              ▼    ▼    ▼         ▼
+  Validação      PyMuPDF/            Heurística +     Recurso Acórdão Minuta  Markdown +
+  de entrada     pdfplumber          LLM fallback     (OpenAI) (OpenAI)(OpenAI) DOCX
+```
 
-**PDF Processing:** `pdf_processor.py` uses PyMuPDF as primary engine with automatic pdfplumber fallback for scanned/problematic PDFs.
+1. **Etapa 1** (`etapa1.py`): Extrai dados estruturados da petição recursal (nº processo, partes, dispositivos violados, permissivo constitucional, flags)
+2. **Etapa 2** (`etapa2.py`): Análise temática do acórdão recorrido (matérias controvertidas, fundamentos, base vinculante, óbices/súmulas) — suporta processamento paralelo de temas
+3. **Etapa 3** (`etapa3.py`): Gera minuta formatada de decisão de admissibilidade com validação cruzada anti-alucinação
 
-**Document Classification:** `classifier.py` automatically distinguishes between appeal petitions and court decisions using heuristics + LLM fallback.
+**Orquestração:** `pipeline.py` coordena o fluxo completo com checkpoints de recuperação via `state_manager.py`.
 
-**LLM Integration:** `llm_client.py` handles OpenAI API calls with exponential backoff retry for rate limits, token tracking, and timeout management.
+## Module Responsibilities
+
+### Core Pipeline
+| Módulo | Responsabilidade |
+|--------|------------------|
+| `main.py` | Entrypoint CLI com argparse (`processar`, `status`, `limpar`) |
+| `config.py` | Carregamento de `.env`, validação de API key, constantes e feature flags |
+| `pipeline.py` | Orquestrador: classificação → Etapa 1 → 2 → 3, gestão de estado |
+| `etapa1.py` | Análise da petição recursal com parsing estruturado da resposta LLM |
+| `etapa2.py` | Análise temática do acórdão com validação de súmulas permitidas |
+| `etapa3.py` | Geração da minuta com validação cruzada entre etapas |
+| `models.py` | Modelos Pydantic: `DocumentoEntrada`, `ResultadoEtapa1/2/3`, `EstadoPipeline` |
+
+### Ingestion & AI
+| Módulo | Responsabilidade |
+|--------|------------------|
+| `pdf_processor.py` | Extração de texto com PyMuPDF + fallback pdfplumber para PDFs escaneados/corrompidos |
+| `classifier.py` | Classificação automática (RECURSO vs ACORDÃO) via heurísticas textuais + LLM fallback |
+| `llm_client.py` | Cliente OpenAI reutilizável: retry com backoff exponencial, tracking de tokens, timeout |
+| `prompt_loader.py` | Carregamento do `SYSTEM_PROMPT.md` com cache e extração de seções por etapa |
+
+### Robust Architecture (Módulos Avançados)
+| Módulo | Responsabilidade |
+|--------|------------------|
+| `token_manager.py` | Gestão de budget de tokens, estimativa com tiktoken, chunking inteligente de documentos longos |
+| `model_router.py` | Roteamento híbrido de modelos (GPT-4o-mini para tarefas simples, GPT-4o para análise crítica) |
+| `cache_manager.py` | Cache de respostas LLM em disco com TTL configurável para economia de custos e velocidade |
+| `state_manager.py` | Serialização/deserialização do estado do pipeline para checkpoints JSON |
+
+### Output
+| Módulo | Responsabilidade |
+|--------|------------------|
+| `output_formatter.py` | Geração de `.md` e `.docx` com formatação jurídica (negrito, seções I/II/III) |
+| `web_app.py` | API Flask para integrações externas (n8n, webhooks) |
 
 ## Key Design Decisions
 
 ### External Prompt Architecture
-- Main AI instructions live in `prompts/SYSTEM_PROMPT.md` (not in code)
-- **Rationale:** Enables rapid prompt iteration without code changes or redeployment
-- The prompt is loaded via `prompt_loader.py` with caching and hot-reload support
-- When updating prompts: increment version in SYSTEM_PROMPT.md, test with real cases, document changes in PR
+- Instruções do agente vivem em `prompts/SYSTEM_PROMPT.md` (fora do código)
+- **Justificativa:** Iteração rápida do prompt sem alterar código ou redesploy
+- Carregamento via `prompt_loader.py` com cache em memória e hot-reload por timestamp
+- Workflow de atualização: editar prompt → incrementar versão → testar com caso real → documentar
 
 ### Anti-Hallucination Strategy
-- Temperature fixed at 0.1 (conservative outputs)
-- Cross-validation between stages: Etapa 3 verifies data from Etapa 1 & 2 matches
-- Literal transcriptions from source documents verified via substring search
-- Legal citation validation: only allowed precedents/súmulas from predefined lists (STJ: 5, 7, 13, 83, 126, 211, 518; STF: 279-284, 356, 735)
+- Temperatura fixa em 0.1 (saídas conservadoras)
+- Validação cruzada entre etapas: Etapa 3 verifica dados contra Etapas 1 & 2
+- Transcrições literais verificadas por busca de substring no texto-fonte
+- Validação de citações jurídicas: somente súmulas de listas predefinidas
+  - **STJ:** 5, 7, 13, 83, 126, 211, 518
+  - **STF:** 279, 280, 281, 282, 283, 284, 356, 735
+
+### Hybrid Model Strategy
+- Controlada por feature flag `ENABLE_HYBRID_MODELS`
+- `gpt-4o-mini` para classificação de documentos (custo ~60-80% menor)
+- `gpt-4o` para análise jurídica (Etapas 1-3) — mantém qualidade
+- Modelos configuráveis via env vars: `MODEL_CLASSIFICATION`, `MODEL_LEGAL_ANALYSIS`, `MODEL_DRAFT_GENERATION`
+
+### Token Management & Chunking
+- `token_manager.py` estima tokens com `tiktoken` antes de cada chamada
+- Chunking inteligente para documentos que excedem 80% do limite de contexto (128k tokens GPT-4o)
+- Budget ratio configurável via `TOKEN_BUDGET_RATIO` (default: 0.7)
+- Overlap entre chunks via `CHUNK_OVERLAP_TOKENS` (default: 500) para manter contexto
 
 ### State Management & Recovery
-- `state_manager.py` serializes full pipeline state to JSON checkpoints
-- Enables recovery from interruptions (API failures, timeouts, user abort)
-- CLI commands: `status` (show checkpoints), `limpar` (clear checkpoints), `processar --continuar` (resume)
-- State includes: document metadata, all stage results, tokens consumed, timestamps
-
-### Data Models
-- All data structures in `models.py` using Pydantic for validation
-- Key models: `DocumentoEntrada`, `ResultadoEtapa1/2/3`, `EstadoPipeline`
-- Enforces type safety and prevents malformed data propagation
+- `state_manager.py` serializa estado completo para checkpoints JSON
+- Recuperação após interrupções (falhas de API, timeout, abort do usuário)
+- Commands CLI: `status` (ver checkpoints), `limpar` (limpar checkpoints), `processar --continuar` (retomar)
+- Estado inclui: metadata de documentos, resultados de todas as etapas, tokens consumidos, timestamps
 
 ## Common Commands
 
 ```bash
 # Setup
 python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
+source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env  # Then edit with your OPENAI_API_KEY
+cp .env.example .env  # Editar com OPENAI_API_KEY
 
 # Run pipeline
 python -m src.main processar recurso.pdf acordao.pdf
 python -m src.main processar *.pdf --formato docx --verbose
-python -m src.main processar *.pdf --continuar  # Resume from checkpoint
+python -m src.main processar *.pdf --continuar  # Retomar de checkpoint
 
 # Testing
-python -m pytest -q                    # Quick run
-python -m pytest --cov=src             # With coverage
-python -m pytest tests/test_pipeline.py -v  # Single module
-python -m pytest -k "test_extraction"  # Filter by name
+python -m pytest -q                           # Rápido
+python -m pytest --cov=src                    # Com cobertura
+python -m pytest tests/test_pipeline.py -v    # Módulo específico
+python -m pytest -k "test_extraction"         # Filtrar por nome
 
 # Checkpoint management
 python -m src.main status
 python -m src.main limpar
 
-# Run web API (if implemented)
+# Web API
 python -m src.web_app
-```
-
-## Module Responsibilities
-
-- `main.py`: CLI entrypoint with argparse interface
-- `config.py`: Load environment variables, validate API key presence, define constants
-- `pipeline.py`: Orchestrates document classification → Etapa 1 → 2 → 3, manages state
-- `etapa1.py/2.py/3.py`: Implement each analysis stage with LLM calls and response parsing
-- `pdf_processor.py`: Text extraction with PyMuPDF + pdfplumber fallback, handles corrupted/scanned PDFs
-- `classifier.py`: Document type detection (RECURSO vs ACORDAO) using pattern matching + LLM
-- `llm_client.py`: Reusable OpenAI client with retry logic, token tracking, timeout handling
-- `prompt_loader.py`: Load and parse `SYSTEM_PROMPT.md`, extract stage-specific sections
-- `output_formatter.py`: Generate `.md` and `.docx` output files with legal formatting
-- `state_manager.py`: Serialize/deserialize pipeline state for checkpoints
-- `models.py`: Pydantic data models for type safety and validation
-
-## Coding Conventions
-
-- **Language:** Code/variables/comments in English, user-facing messages in Portuguese
-- **Type hints:** Mandatory on all functions (enforced by convention, consider mypy in CI)
-- **Style:** PEP 8 (4-space indent, snake_case functions/vars, PascalCase classes, UPPER_CASE constants)
-- **Logging:** Use `logging` module, not `print` (except CLI display via `rich`)
-- **Error handling:** Explicit try/except with clear user messages for common failures (invalid API key, PDF corruption, rate limits)
-- **Commits:** Conventional Commits format (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`)
-
-## Testing Strategy
-
-- Framework: pytest + pytest-cov
-- Test files: `tests/test_*.py` mirroring `src/*.py` structure
-- Fixtures: Representative PDFs in `tests/fixtures/` (valid, minimal, corrupted, scanned)
-- Unit tests: Individual modules (PDF extraction, classification, parsing)
-- Integration tests: Full pipeline with real LLM calls (mark as slow with `@pytest.mark.slow`)
-- Target: >80% coverage for core logic (pipeline, etapas, parsers)
-- Run full suite before PRs: `python -m pytest --cov=src`
-
-## Output Structure
-
-Generated in `outputs/` (or `--saida` override):
-
-- `minuta_<processo>_<timestamp>.md` (or `.docx`): Final admissibility brief
-- `auditoria_<processo>_<timestamp>.md`: Audit report (tokens used, validation warnings, timestamps)
-- `.checkpoints/estado_<id>.json`: Serialized pipeline state for recovery
-
-Checkpoint JSON structure:
-```json
-{
-  "documentos_entrada": [{"filepath": "...", "tipo": "RECURSO", "num_paginas": 10}],
-  "resultado_etapa1": {"numero_processo": "...", "recorrente": "...", ...},
-  "resultado_etapa2": {"temas": [{"materia_controvertida": "...", ...}]},
-  "resultado_etapa3": {"minuta_completa": "...", "decisao": "ADMITIDO"},
-  "metadata": {"inicio": "...", "fim": "...", "total_tokens": 45000, ...}
-}
 ```
 
 ## Environment Variables
 
-Required in `.env`:
-- `OPENAI_API_KEY`: OpenAI API key (mandatory)
-- `OPENAI_MODEL`: Model name (default: `gpt-4o`)
-- `TEMPERATURE`: LLM temperature (default: `0.1`)
-- `MAX_TOKENS`: Max tokens per completion (default: `4096`)
-- `LLM_TIMEOUT`: Request timeout in seconds (default: `120`)
-- `LLM_MAX_RETRIES`: Retry attempts for transient errors (default: `3`)
-- `LOG_LEVEL`: Logging verbosity (default: `INFO`)
+Definidas em `.env` (copiar de `.env.example`):
+
+### Obrigatórias
+| Variável | Descrição | Default |
+|----------|-----------|---------|
+| `OPENAI_API_KEY` | Chave da API OpenAI | — (obrigatória) |
+
+### LLM & Modelos
+| Variável | Descrição | Default |
+|----------|-----------|---------|
+| `OPENAI_MODEL` | Modelo principal | `gpt-4o` |
+| `TEMPERATURE` | Temperatura de geração | `0.0` |
+| `MAX_TOKENS` | Tokens máximos por chamada | `2048` |
+| `LLM_TIMEOUT` | Timeout de requisição (segundos) | `120` |
+| `LLM_MAX_RETRIES` | Tentativas para erros transientes | `3` |
+| `LOG_LEVEL` | Nível de logging | `INFO` |
+
+### Feature Flags
+| Variável | Descrição | Default |
+|----------|-----------|---------|
+| `ENABLE_CHUNKING` | Chunking inteligente para documentos longos | `true` |
+| `ENABLE_HYBRID_MODELS` | Roteamento híbrido (mini + 4o) — reduz custos 60-80% | `true` |
+| `ENABLE_RATE_LIMITING` | Gestão proativa de rate limit | `true` |
+| `ENABLE_CACHING` | Cache de respostas LLM em disco | `false` |
+| `ENABLE_PARALLEL_ETAPA2` | Processamento paralelo na Etapa 2 (~30% mais rápido) | `false` |
+
+### Configuração de Modelos Híbridos
+| Variável | Descrição | Default |
+|----------|-----------|---------|
+| `MODEL_CLASSIFICATION` | Modelo para classificação | `gpt-4o-mini` |
+| `MODEL_LEGAL_ANALYSIS` | Modelo para análise jurídica | `gpt-4o` |
+| `MODEL_DRAFT_GENERATION` | Modelo para geração de minuta | `gpt-4o` |
+
+### Token & Cache
+| Variável | Descrição | Default |
+|----------|-----------|---------|
+| `TOKEN_BUDGET_RATIO` | Ratio do limite de contexto a usar como budget | `0.7` |
+| `CHUNK_OVERLAP_TOKENS` | Overlap de tokens entre chunks | `500` |
+| `MAX_CONTEXT_TOKENS` | Tokens máximos de contexto por requisição | `100000` |
+| `CACHE_TTL_HOURS` | TTL do cache de respostas (horas) | `24` |
+| `ETAPA2_PARALLEL_WORKERS` | Workers paralelos na Etapa 2 | `3` |
+
+## Project Structure
+
+```
+agente_assessores/
+├── src/                         # Código-fonte principal
+│   ├── main.py                  # CLI entrypoint
+│   ├── config.py                # Configuração e env vars
+│   ├── pipeline.py              # Orquestrador do pipeline
+│   ├── etapa1.py                # Etapa 1 — Recurso
+│   ├── etapa2.py                # Etapa 2 — Acórdão
+│   ├── etapa3.py                # Etapa 3 — Minuta
+│   ├── pdf_processor.py         # Extração de texto de PDFs
+│   ├── classifier.py            # Classificação de documentos
+│   ├── llm_client.py            # Cliente OpenAI com retry
+│   ├── prompt_loader.py         # Carregamento do prompt externo
+│   ├── models.py                # Modelos Pydantic
+│   ├── output_formatter.py      # Formatação de saída (.md/.docx)
+│   ├── state_manager.py         # Checkpoints de estado
+│   ├── token_manager.py         # Gestão de budget de tokens
+│   ├── model_router.py          # Roteamento híbrido de modelos
+│   ├── cache_manager.py         # Cache de respostas LLM
+│   └── web_app.py               # API Flask
+├── tests/                       # Testes
+│   ├── conftest.py              # Configuração global do pytest
+│   ├── fixtures/                # PDFs de teste (válidos, corrompidos, etc.)
+│   ├── test_classifier.py
+│   ├── test_config.py
+│   ├── test_etapa1.py
+│   ├── test_etapa2.py
+│   ├── test_etapa3.py
+│   ├── test_llm_and_prompt.py
+│   ├── test_models.py
+│   ├── test_pdf_processor.py
+│   ├── test_pipeline.py
+│   ├── test_pipeline_robust.py
+│   └── test_token_manager.py
+├── prompts/
+│   └── SYSTEM_PROMPT.md         # Prompt principal (separado do código)
+├── docs/                        # Documentação técnica
+│   ├── README.md                # Índice da documentação
+│   ├── visao-geral.md           # Visão geral do projeto
+│   ├── arquitetura.md           # Arquitetura técnica
+│   ├── padroes-desenvolvimento.md
+│   ├── estrutura-projeto.md
+│   ├── prompt-ia.md
+│   ├── glossario.md
+│   ├── deploy.md
+│   └── prompt-refinement-sprint7.md
+├── outputs/                     # Minutas geradas
+├── templates/                   # Templates HTML (Flask)
+├── PRD.md                       # Product Requirements Document
+├── SYSTEM_PROMPT.md             # Prompt do agente (raiz — referência)
+├── TASKS.md                     # Tracking de sprints/tarefas
+├── AGENTS.md                    # Guia para agentes de IA
+├── requirements.txt             # Dependências Python
+├── Dockerfile                   # Containerização
+├── docker-compose.yml           # Execução local simplificada
+├── .env.example                 # Template de variáveis de ambiente
+└── .gitignore
+```
+
+## Coding Conventions
+
+- **Idioma:** Código/variáveis/comentários em inglês; mensagens ao usuário em português
+- **Type hints:** Obrigatórios em todas as funções
+- **Style:** PEP 8 — 4 espaços, `snake_case` funções/vars, `PascalCase` classes, `UPPER_CASE` constantes
+- **Logging:** Usar módulo `logging`, nunca `print` (exceto display CLI via `rich`)
+- **Error handling:** try/except explícito com mensagens claras para falhas comuns (API key inválida, PDF corrompido, rate limits)
+- **Commits:** Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`)
+
+## Testing Strategy
+
+- **Framework:** pytest + pytest-cov
+- **Estrutura:** `tests/test_*.py` espelhando módulos em `src/`
+- **Fixtures:** PDFs representativos em `tests/fixtures/` (válidos, mínimos, corrompidos, escaneados)
+- **Unit tests:** Módulos individuais (PDF extraction, classificação, parsing, token management)
+- **Integration tests:** Pipeline completo com chamadas reais ao LLM (marcar com `@pytest.mark.slow`)
+- **Robust tests:** `test_pipeline_robust.py` testa cenários avançados (chunking, modelo híbrido, cache)
+- **Meta:** >80% cobertura para lógica core (pipeline, etapas, parsers)
+- **Pre-PR:** `python -m pytest --cov=src`
+
+## Output Structure
+
+Gerado em `outputs/` (ou `--saida` override):
+
+- `minuta_<processo>_<timestamp>.md` (ou `.docx`): Minuta final de admissibilidade
+- `auditoria_<processo>_<timestamp>.md`: Relatório de auditoria (tokens, alertas, timestamps)
+- `.checkpoints/estado_<id>.json`: Estado serializado do pipeline para recovery
 
 ## Prompt Workflow
 
-1. Edit `prompts/SYSTEM_PROMPT.md` with instruction changes
-2. Increment version number in prompt header
-3. Test with at least 1 real case: `python -m src.main processar <test_files>`
-4. Compare output quality vs. previous version
-5. Run tests to check for regressions: `python -m pytest`
-6. Document prompt changes in PR description
-
-## Token & Cost Management
-
-- All LLM calls tracked via `llm_client.py`
-- Token usage logged: `prompt_tokens`, `completion_tokens`, `total_tokens`
-- Audit report includes cost estimate based on GPT-4o pricing
-- Use `tiktoken` for pre-call estimation to avoid context limit surprises
-- Stage 1 typically uses ~2-5k tokens, Stage 2: ~5-10k, Stage 3: ~8-15k (varies with case complexity)
+1. Editar `prompts/SYSTEM_PROMPT.md` com alterações de instrução
+2. Incrementar número de versão no header do prompt
+3. Testar com pelo menos 1 caso real: `python -m src.main processar <arquivos>`
+4. Comparar qualidade da saída com versão anterior
+5. Rodar testes: `python -m pytest`
+6. Documentar alterações no PR
 
 ## Common Pitfalls
 
-- **PDF extraction fails:** PDFs may be scanned without OCR; pdfplumber fallback may not help. Future: integrate Tesseract OCR.
-- **Context limit exceeded:** Large case files (>100 pages) may need chunking. Check `pdf_processor.py` for current limits.
-- **Hallucinated legal citations:** Validate all súmulas/precedents cited in Etapa 3 against allowed lists in `etapa2.py`.
-- **Rate limits:** OpenAI API has rate limits; `llm_client.py` retries with exponential backoff, but may still fail under sustained load.
-- **Temperature changes:** Increasing temperature above 0.1 may improve creativity but risks hallucination; test carefully.
+- **PDF sem OCR:** PDFs escaneados sem texto extraível — pdfplumber fallback pode não resolver. Futuro: integrar Tesseract OCR
+- **Limite de contexto:** Casos grandes (>100 páginas) necessitam chunking — controlado por `token_manager.py` e flag `ENABLE_CHUNKING`
+- **Citações alucinadas:** Validar todas as súmulas/precedentes contra listas permitidas em `etapa2.py`
+- **Rate limits:** `llm_client.py` faz retry com backoff exponencial — pode falhar sob carga sustentada
+- **Temperatura alta:** Acima de 0.1 pode melhorar criatividade mas aumenta risco de alucinação — testar cuidadosamente
+- **Cache stale:** Se `ENABLE_CACHING=true`, respostas cached podem estar desatualizadas — ajustar `CACHE_TTL_HOURS` conforme necessidade
 
 ## Integration Points
 
-- **CLI:** Primary interface via `main.py`
-- **Web API:** `web_app.py` provides Flask endpoint for external integrations (e.g., n8n workflows)
-- **State files:** Can be parsed by external tools for monitoring/auditing
-- **Output files:** `.md` format easily converted to other formats via pandoc
+- **CLI:** Interface principal via `main.py`
+- **Web API:** `web_app.py` fornece endpoint Flask para integrações externas (n8n, webhooks)
+- **Docker:** `Dockerfile` + `docker-compose.yml` para deploy containerizado
+- **State files:** JSON parseável por ferramentas externas para monitoramento/auditoria
+- **Output files:** Formato `.md` facilmente convertível para outros formatos via pandoc
