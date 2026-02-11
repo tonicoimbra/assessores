@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 from uuid import uuid4
+import os
 
 from flask import Flask, render_template, request, send_file
 from werkzeug.utils import secure_filename
@@ -153,7 +154,8 @@ def download():
 
 def run() -> None:
     """Run local development web server."""
-    app.run(host="0.0.0.0", port=7860, debug=False)
+    port = int(os.environ.get("PORT", 7860))
+    app.run(host="0.0.0.0", port=port, debug=False)
 
 
 if __name__ == "__main__":
