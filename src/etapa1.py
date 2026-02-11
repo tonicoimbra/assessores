@@ -372,6 +372,7 @@ def _merge_etapa1_results(resultados: list[ResultadoEtapa1]) -> ResultadoEtapa1:
 def executar_etapa1_com_chunking(
     texto_recurso: str,
     prompt_sistema: str,
+    modelo_override: str | None = None,
 ) -> ResultadoEtapa1:
     """
     Execute Stage 1 with automatic chunking for large documents.
@@ -389,7 +390,7 @@ def executar_etapa1_com_chunking(
     # Check if chunking is enabled
     if not ENABLE_CHUNKING:
         logger.debug("Chunking desabilitado — usando fluxo padrão")
-        return executar_etapa1(texto_recurso, prompt_sistema)
+        return executar_etapa1(texto_recurso, prompt_sistema, modelo_override=modelo_override)
 
     # Estimate tokens
     tokens_estimados = estimar_tokens(texto_recurso)
@@ -398,7 +399,7 @@ def executar_etapa1_com_chunking(
     # If fits in one request, use standard flow
     if tokens_estimados <= limite_seguro:
         logger.debug("Documento cabe em uma requisição (%d tokens)", tokens_estimados)
-        return executar_etapa1(texto_recurso, prompt_sistema)
+        return executar_etapa1(texto_recurso, prompt_sistema, modelo_override=modelo_override)
 
     # Document is too large — apply chunking
     logger.warning(
@@ -418,7 +419,7 @@ def executar_etapa1_com_chunking(
         logger.info("🔄 Processando chunk %d/%d...", i, len(chunks))
 
         try:
-            resultado = executar_etapa1(chunk, prompt_sistema)
+            resultado = executar_etapa1(chunk, prompt_sistema, modelo_override=modelo_override)
             resultados_parciais.append(resultado)
 
         except Exception as e:

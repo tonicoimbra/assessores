@@ -390,6 +390,7 @@ def executar_etapa3_com_chunking(
     resultado_etapa2: ResultadoEtapa2,
     texto_acordao: str,
     prompt_sistema: str,
+    modelo_override: str | None = None,
 ) -> ResultadoEtapa3:
     """
     Execute Stage 3 with automatic chunking for large documents.
@@ -409,7 +410,7 @@ def executar_etapa3_com_chunking(
     # Check if chunking is enabled
     if not ENABLE_CHUNKING:
         logger.debug("Chunking desabilitado — usando fluxo padrão")
-        return executar_etapa3(resultado_etapa1, resultado_etapa2, texto_acordao, prompt_sistema)
+        return executar_etapa3(resultado_etapa1, resultado_etapa2, texto_acordao, prompt_sistema, modelo_override=modelo_override)
 
     # Prerequisite validation
     if resultado_etapa2 is None or not resultado_etapa2.temas:
@@ -445,7 +446,7 @@ def executar_etapa3_com_chunking(
     # If fits in one request, use standard flow
     if tokens_total <= limite_seguro:
         logger.debug("Documento cabe em uma requisição (%d tokens)", tokens_total)
-        return executar_etapa3(resultado_etapa1, resultado_etapa2, texto_acordao, prompt_sistema)
+        return executar_etapa3(resultado_etapa1, resultado_etapa2, texto_acordao, prompt_sistema, modelo_override=modelo_override)
 
     # Document is too large — apply chunking to acordao only
     logger.warning(
@@ -472,7 +473,7 @@ def executar_etapa3_com_chunking(
         logger.info("🔄 Processando chunk %d/%d...", i, len(chunks))
 
         try:
-            resultado = executar_etapa3(resultado_etapa1, resultado_etapa2, chunk, prompt_sistema)
+            resultado = executar_etapa3(resultado_etapa1, resultado_etapa2, chunk, prompt_sistema, modelo_override=modelo_override)
             resultados_parciais.append(resultado)
 
         except Exception as e:

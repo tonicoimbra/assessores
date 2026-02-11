@@ -253,7 +253,7 @@ class PipelineAdmissibilidade:
                 time.sleep(60)
                 # Retry after wait
                 estado.resultado_etapa1 = executar_fn(
-                    texto_recurso, self.prompt_sistema
+                    texto_recurso, self.prompt_sistema, modelo_override=self.modelo
                 )
 
             self.metricas["tempo_etapa1"] = time.time() - t0
