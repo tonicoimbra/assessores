@@ -37,13 +37,18 @@ Este guia descreve como colocar o **Copilot Jurídico** no ar em plataformas que
     *   **Importante:** Ao pedir a senha, use um **Access Token** com permissão `WRITE` (crie em [hf.co/settings/tokens](https://huggingface.co/settings/tokens)), não sua senha de login.
 
 3.  **Configuração (Secrets):**
-    *   Vá em **Settings** > **Variables and secrets**.
-    *   Adicione as seguintes secrets (copie do seu `.env`):
-        *   `OPENAI_API_KEY`
-        *   `OPENROUTER_API_KEY`
-        *   `GOOGLE_API_KEY`
-        *   `LLM_PROVIDER` (ex: `openrouter`)
-        *   `OUTPUTS_DIR` (pode ser `/app/outputs` ou `/tmp/outputs` se o disco for efêmero)
+    *   Adicione as seguintes secrets (pode fazer manualmente ou usar o script abaixo):
+        *   `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `LLM_PROVIDER`, etc.
+
+### ⚡ Dica: Upload Automático do .env
+Se você tiver muitas variáveis no `.env`, pode usar o script que criei para subir tudo de uma vez:
+
+1.  Instale a biblioteca necessária: `pip install huggingface_hub python-dotenv`
+2.  Rode o script:
+    ```bash
+    python upload_secrets.py elvertoni/ar SEU_TOKEN_HF
+    ```
+    *(Substitua `elvertoni/ar` pelo seu Space e coloque seu Token com permissão WRITE).*
 
 4.  **Pronto!**
     *   O Space irá construir a imagem Docker e iniciar.
