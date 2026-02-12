@@ -72,15 +72,23 @@ def processar():
         ), 400
 
     recurso = request.files.get("recurso_pdf")
-    acordao = request.files.get("acordao_pdf")
+    acordaos = request.files.getlist("acordao_pdf")
     formato = request.form.get("formato", "md")
     modelo = request.form.get("modelo", _get_default_model())
 
-    if not recurso or not acordao:
+    if not recurso or not acordaos:
         return render_template(
             "web/index.html",
             result=None,
-            error="Envie os dois arquivos: recurso e acórdão.",
+            error="Envie o recurso e pelo menos um arquivo de acórdão.",
+            default_model=modelo,
+        ), 400
+
+    if len(acordaos) > 10:
+        return render_template(
+            "web/index.html",
+            result=None,
+            error="O limite é de 10 arquivos para o Acórdão.",
             default_model=modelo,
         ), 400
 
@@ -92,11 +100,15 @@ def processar():
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     recurso_name = secure_filename(recurso.filename or "recurso.pdf")
-    acordao_name = secure_filename(acordao.filename or "acordao.pdf")
     recurso_path = upload_dir / recurso_name
-    acordao_path = upload_dir / acordao_name
     recurso.save(recurso_path)
-    acordao.save(acordao_path)
+
+    acordao_paths = []
+    for i, file in enumerate(acordaos):
+        name = secure_filename(file.filename or f"acordao_{i}.pdf")
+        path = upload_dir / name
+        file.save(path)
+        acordao_paths.append(str(path))
 
     try:
         pipeline = PipelineAdmissibilidade(
@@ -104,7 +116,7 @@ def processar():
             formato_saida=formato,
         )
         resultado = pipeline.executar(
-            pdfs=[str(recurso_path), str(acordao_path)],
+            pdfs=[str(recurso_path)] + acordao_paths,
             processo_id=f"web_{req_id}",
             continuar=False,
         )

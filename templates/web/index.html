@@ -30,7 +30,7 @@
           <h1>Assessor.AI</h1>
           <p>TJPR — Análise de Admissibilidade</p>
         </div>
-        <span class="header-badge">v2.0</span>
+        <span class="header-badge">v2.1</span>
       </div>
     </header>
 
@@ -61,7 +61,7 @@
             </svg>
             Enviar Documentos
           </h2>
-          <p class="card-description">Faça upload do recurso e acórdão em PDF para gerar a minuta de admissibilidade.
+          <p class="card-description">Faça upload do recurso e acórdão(s) em PDF para gerar a minuta de admissibilidade.
           </p>
         </div>
 
@@ -87,7 +87,7 @@
 
             <!-- Acórdão -->
             <div class="upload-zone" id="zoneAcordao">
-              <input type="file" name="acordao_pdf" id="acordao_pdf" accept="application/pdf" required>
+              <input type="file" name="acordao_pdf" id="acordao_pdf" accept="application/pdf" required multiple>
               <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
                 stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -95,8 +95,8 @@
                 <line x1="12" y1="18" x2="12" y2="12" />
                 <polyline points="9 15 12 12 15 15" />
               </svg>
-              <div class="upload-label">PDF do Acórdão</div>
-              <div class="upload-hint">Clique ou arraste o arquivo</div>
+              <div class="upload-label">PDFs do Acórdão (até 10)</div>
+              <div class="upload-hint">Clique ou arraste os arquivos</div>
               <div class="upload-filename" id="filenameAcordao"></div>
             </div>
 
@@ -118,8 +118,8 @@
             <div class="form-group">
               <label class="form-label" for="formato">Formato da Minuta</label>
               <select class="form-select" name="formato" id="formato">
+                <option value="docx" selected>Word (.docx)</option>
                 <option value="md">Markdown (.md)</option>
-                <option value="docx">Word (.docx)</option>
               </select>
             </div>
           </div>
@@ -254,7 +254,11 @@
       input.addEventListener('change', () => {
         if (input.files.length > 0) {
           zone.classList.add('has-file');
-          filenameEl.textContent = '✓ ' + input.files[0].name;
+          if (input.files.length === 1) {
+            filenameEl.textContent = '✓ ' + input.files[0].name;
+          } else {
+            filenameEl.textContent = '✓ ' + input.files.length + ' arquivos selecionados';
+          }
         } else {
           zone.classList.remove('has-file');
           filenameEl.textContent = '';
