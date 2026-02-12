@@ -37,7 +37,7 @@ PDFs (upload) → Extração de Texto → Classificação → Pipeline 3 Etapas 
 | Componente         | Tecnologia                | Justificativa                                      |
 |--------------------|---------------------------|----------------------------------------------------|
 | Linguagem          | Python 3.11+              | Ecossistema maduro para IA e automação             |
-| LLM                | OpenAI API (GPT-4o)       | Capacidade de contexto longo, qualidade de análise  |
+| LLM                | OpenAI API: GPT-4.1 (análise jurídica) + GPT-4.1 mini (classificação) | GPT-4.1: contexto de 1M tokens, alta precisão e instruction following ($2.00/M input, $8.00/M output); GPT-4.1 mini: 93% mais econômico para classificação ($0.15/M input, $0.60/M output) |
 | Extração de PDF    | PyMuPDF (fitz) + pdfplumber | Robustez com PDFs escaneados e fracionados       |
 | Prompt             | Arquivo `.md` separado    | Iteração rápida sem alterar código                 |
 | Interface          | CLI primeiro, API depois  | Validação rápida, depois exposição como serviço    |
@@ -89,7 +89,7 @@ PDFs (upload) → Extração de Texto → Classificação → Pipeline 3 Etapas 
   └── README.md
   ```
 - [ ] **1.1.3** Criar `requirements.txt` com dependências iniciais: `openai`, `pymupdf`, `pdfplumber`, `python-dotenv`, `pydantic`, `rich` (para CLI)
-- [ ] **1.1.4** Criar `.env.example` com variáveis: `OPENAI_API_KEY`, `OPENAI_MODEL` (default: `gpt-4o`), `MAX_TOKENS`, `TEMPERATURE` (default: `0.1`)
+- [ ] **1.1.4** Criar `.env.example` com variáveis: `OPENAI_API_KEY`, `OPENAI_MODEL` (default: `gpt-4.1`), `OPENAI_MODEL_CLASSIFIER` (default: `gpt-4.1-mini`), `MAX_TOKENS`, `TEMPERATURE` (default: `0.1`)
 - [ ] **1.1.5** Criar `README.md` com instruções de setup, uso e estrutura
 
 #### 1.2 Configuração e Ambiente
@@ -106,7 +106,7 @@ PDFs (upload) → Extração de Texto → Classificação → Pipeline 3 Etapas 
 - [ ] **1.3.3** Criar model `TemaEtapa2` com campos: `materia_controvertida`, `conclusao_fundamentos`, `base_vinculante`, `obices_sumulas`, `trecho_transcricao`
 - [ ] **1.3.4** Criar model `ResultadoEtapa2` com campo: `temas` (lista de `TemaEtapa2`), `texto_formatado`
 - [ ] **1.3.5** Criar model `ResultadoEtapa3` com campo: `minuta_completa` (texto final), `decisao` (enum: `ADMITIDO`, `INADMITIDO`)
-- [ ] **1.3.6** Criar model `EstadoPipeline` que agrupa: `documentos_entrada`, `resultado_etapa1`, `resultado_etapa2`, `resultado_etapa3`, `metadata` (timestamps, modelo usado, tokens consumidos)
+- [ ] **1.3.6** Criar model `EstadoPipeline` que agrupa: `documentos_entrada`, `resultado_etapa1`, `resultado_etapa2`, `resultado_etapa3`, `metadata` (timestamps, modelos usados — GPT-4.1 para análise e GPT-4.1 mini para classificação, tokens consumidos)
 
 #### 1.4 Extração de Texto de PDFs
 
@@ -147,8 +147,8 @@ PDFs (upload) → Extração de Texto → Classificação → Pipeline 3 Etapas 
 - [ ] **2.2.2** Implementar classificação por heurísticas textuais (primeira tentativa, sem LLM):
   - Detectar padrões de recurso: "PROJUDI - Recurso:", "Recurso Especial", "Recurso Extraordinário", "razões recursais", "art. 105, III" ou "art. 102, III"
   - Detectar padrões de acórdão: "ACÓRDÃO", "Vistos, relatados e discutidos", "Câmara Cível", "EMENTA", "ACORDAM"
-- [ ] **2.2.3** Implementar classificação por LLM como fallback quando heurísticas forem inconclusivas (score de confiança < 0.7)
-- [ ] **2.2.4** Criar prompt curto e específico para classificação via LLM: recebe os primeiros 2000 caracteres do texto e retorna JSON `{"tipo": "RECURSO"|"ACORDAO", "confianca": 0.0-1.0}`
+- [ ] **2.2.3** Implementar classificação por LLM (GPT-4.1 mini) como fallback quando heurísticas forem inconclusivas (score de confiança < 0.7)
+- [ ] **2.2.4** Criar prompt curto e específico para classificação via GPT-4.1 mini: recebe os primeiros 2000 caracteres do texto e retorna JSON `{"tipo": "RECURSO"|"ACORDAO", "confianca": 0.0-1.0}`
 - [ ] **2.2.5** Implementar lógica de agrupamento: quando múltiplos PDFs fracionados pertencem ao mesmo documento, agrupá-los antes de classificar
 - [ ] **2.2.6** Implementar validação: garantir que pelo menos 1 recurso foi identificado; emitir aviso se nenhum acórdão foi encontrado
 - [ ] **2.2.7** Logar resultado da classificação com confiança para auditoria
@@ -197,7 +197,7 @@ PDFs (upload) → Extração de Texto → Classificação → Pipeline 3 Etapas 
 
 #### 3.3 Gestão de Contexto
 
-- [ ] **3.3.1** Implementar verificação de tamanho do texto do recurso vs. limite de contexto do modelo (128k tokens para GPT-4o)
+- [ ] **3.3.1** Implementar verificação de tamanho do texto do recurso vs. limite de contexto do modelo (1M tokens para GPT-4.1)
 - [ ] **3.3.2** Se o texto exceder 80% do limite, implementar estratégia de chunking: dividir em partes com overlap e processar sequencialmente
 - [ ] **3.3.3** Implementar estimativa de tokens usando `tiktoken` antes de enviar ao LLM
 - [ ] **3.3.4** Logar tokens estimados vs. tokens reais consumidos para calibrar estimativas
@@ -332,7 +332,7 @@ PDFs (upload) → Extração de Texto → Classificação → Pipeline 3 Etapas 
   python -m src.main status                  # mostra estado do último processamento
   python -m src.main limpar                  # limpa checkpoints
   ```
-- [ ] **6.2.2** Implementar flag `--modelo` para selecionar modelo OpenAI (default: gpt-4o)
+- [ ] **6.2.2** Implementar flag `--modelo` para selecionar modelo OpenAI para análise jurídica (default: gpt-4.1)
 - [ ] **6.2.3** Implementar flag `--temperatura` para ajustar criatividade (default: 0.1)
 - [ ] **6.2.4** Implementar flag `--saida` para diretório de saída customizado
 - [ ] **6.2.5** Implementar flag `--verbose` para logging detalhado
@@ -414,8 +414,8 @@ PDFs (upload) → Extração de Texto → Classificação → Pipeline 3 Etapas 
 |-------|---------|-----------|
 | Alucinação do LLM | Alto | Validação cruzada entre etapas; temperatura baixa (0.1); checagem de substring |
 | PDFs escaneados sem OCR | Médio | Fallback com pdfplumber; aviso ao usuário; futuramente integrar Tesseract |
-| Limite de contexto excedido | Médio | Estimativa prévia com tiktoken; chunking com overlap |
-| Custo de API alto | Baixo | Tracking de tokens; relatório de custo; possível troca para modelo mais barato em classificação |
+| Limite de contexto excedido | Médio | Estimativa prévia com tiktoken; chunking com overlap; GPT-4.1 oferece 1M tokens de contexto |
+| Custo de API alto | Baixo | Tracking de tokens; relatório de custo; uso de GPT-4.1 mini (93% mais econômico) para classificação |
 | Formato de saída inconsistente | Médio | Parser robusto; validação estrutural; retry se formato inválido |
 
 ---

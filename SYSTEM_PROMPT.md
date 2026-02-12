@@ -1,8 +1,12 @@
 # SYSTEM PROMPT — Assessor.AI (TJPR)
 
-> **Versão:** 1.1.0
-> **Última atualização:** 2026-02-10
+> **Versão:** 2.0.0
+> **Última atualização:** 2026-02-12
 > **Arquivo separado para facilitar iterações e ajustes no prompt sem alterar o código.**
+>
+> **Modelos de IA utilizados:**
+> - **GPT-4.1** (`openai/gpt-4.1`): Análise jurídica (Etapas 1, 2 e 3) — Contexto: 1M tokens | Input: $2.00/M | Output: $8.00/M
+> - **GPT-4.1 mini** (`openai/gpt-4.1-mini`): Classificação de documentos — Contexto: 1M tokens | Input: $0.15/M | Output: $0.60/M
 
 ---
 
@@ -226,5 +230,6 @@ Do exposto, **[admito/inadmito]** o **[Recurso Especial/Extraordinário]** inter
 
 | Versão | Data       | Alteração                                                                 |
 |--------|------------|---------------------------------------------------------------------------|
+| 2.0.0  | 2026-02-12 | Atualização dos modelos: GPT-4.1 para análise jurídica (Etapas 1-3), GPT-4.1 mini para classificação de documentos |
 | 1.1.0  | 2026-02-10 | Ajustes de formato para parser, restrição de aspas e vedação de súmula nova |
 | 1.0.0  | 2025-02-10 | Versão inicial consolidada                                                |
