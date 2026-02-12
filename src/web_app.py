@@ -35,7 +35,7 @@ def _get_default_model() -> str:
     """Get default model based on provider."""
     if LLM_PROVIDER == "openrouter":
         return "deepseek/deepseek-r1"
-    return "gpt-4o"
+    return "gpt-4.1"
 
 
 def _friendly_error(exc: Exception) -> str:
