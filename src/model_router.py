@@ -11,7 +11,7 @@ from src.config import (
     OPENAI_MODEL,
 )
 
-logger = logging.getLogger("copilot_juridico")
+logger = logging.getLogger("assessor_ai")
 
 
 class TaskType(str, Enum):

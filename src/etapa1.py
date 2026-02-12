@@ -17,7 +17,7 @@ from src.llm_client import chamar_llm, chamar_llm_json
 from src.model_router import TaskType, get_model_for_task
 from src.models import ResultadoEtapa1
 
-logger = logging.getLogger("copilot_juridico")
+logger = logging.getLogger("assessor_ai")
 
 
 # --- 3.3.3 Token estimation ---

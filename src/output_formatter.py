@@ -20,7 +20,7 @@ except ImportError:  # pragma: no cover - covered by runtime guard
 from src.config import OUTPUTS_DIR
 from src.models import EstadoPipeline, ResultadoEtapa3
 
-logger = logging.getLogger("copilot_juridico")
+logger = logging.getLogger("assessor_ai")
 
 INLINE_MARKDOWN_RE = re.compile(r"(\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_)")
 

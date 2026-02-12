@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from src.models import DocumentoEntrada, TipoDocumento
 
-logger = logging.getLogger("copilot_juridico")
+logger = logging.getLogger("assessor_ai")
 
 
 # Heuristic patterns

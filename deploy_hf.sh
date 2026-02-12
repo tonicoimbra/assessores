@@ -5,7 +5,7 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}🚀 Copilot Jurídico -> Hugging Face Deploy Auto${NC}"
+echo -e "${GREEN}🚀 Assessor.AI -> Hugging Face Deploy Auto${NC}"
 echo "--------------------------------------------------------"
 
 if [ -z "$1" ]; then

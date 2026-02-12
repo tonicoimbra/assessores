@@ -87,7 +87,7 @@ LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
 
 def setup_logging() -> logging.Logger:
     """Configure project-wide logging."""
-    logger = logging.getLogger("copilot_juridico")
+    logger = logging.getLogger("assessor_ai")
     logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 
     if not logger.handlers:

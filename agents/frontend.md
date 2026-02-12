@@ -78,7 +78,7 @@ templates/
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Copilot Jurídico{% endblock %}</title>
+    <title>{% block title %}Assessor.AI{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'css/output.css' %}">
 </head>
 <body class="bg-gray-50 min-h-screen">

@@ -1,5 +1,5 @@
 ---
-title: Copilot Juridico
+title: Assessor.AI
 emoji: ⚖️
 colorFrom: blue
 colorTo: indigo

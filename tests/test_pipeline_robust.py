@@ -23,7 +23,7 @@ class TestChunkingIntegration:
         """Generate large text that requires chunking (simulate 150k tokens)."""
         # Each paragraph ~100 tokens, 1500 paragraphs = ~150k tokens
         paragraphs = []
-        for i in range(1500):
+        for i in range(3000):
             paragraphs.append(
                 f"Parágrafo {i}: Este é um texto de exemplo para simular um documento "
                 f"jurídico muito grande que excederá os limites de contexto e necessitará "
@@ -222,8 +222,10 @@ class TestHybridModels:
 
         from src.model_router import TaskType, model_router
 
+        from src.config import MODEL_CLASSIFICATION
+        
         model = model_router.get_model_for_task(TaskType.CLASSIFICATION)
-        assert model == "gpt-4o-mini"
+        assert model == MODEL_CLASSIFICATION
 
     def test_model_router_legal_analysis(self):
         """Test that legal analysis uses gpt-4o."""
@@ -232,8 +234,10 @@ class TestHybridModels:
 
         from src.model_router import TaskType, model_router
 
+        from src.config import MODEL_LEGAL_ANALYSIS
+        
         model = model_router.get_model_for_task(TaskType.LEGAL_ANALYSIS)
-        assert model == "gpt-4o"
+        assert model == MODEL_LEGAL_ANALYSIS
 
     def test_cost_savings_estimate(self):
         """Test cost savings calculation."""

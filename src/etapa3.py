@@ -13,7 +13,7 @@ from src.llm_client import chamar_llm
 from src.model_router import TaskType, get_model_for_task
 from src.models import Decisao, ResultadoEtapa1, ResultadoEtapa2, ResultadoEtapa3
 
-logger = logging.getLogger("copilot_juridico")
+logger = logging.getLogger("assessor_ai")
 
 
 class Etapa3Error(Exception):

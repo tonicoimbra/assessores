@@ -13,7 +13,7 @@ from src.config import (
     CONTEXT_WARNING_RATIO,
 )
 
-logger = logging.getLogger("copilot_juridico")
+logger = logging.getLogger("assessor_ai")
 
 
 class TokenBudgetExceededError(Exception):

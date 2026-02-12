@@ -175,7 +175,7 @@ def main() -> None:
 
     # 6.2.5 — Verbose logging
     if hasattr(args, "verbose") and args.verbose:
-        logger = logging.getLogger("copilot_juridico")
+        logger = logging.getLogger("assessor_ai")
         logger.setLevel(logging.DEBUG)
         for handler in logger.handlers:
             handler.setLevel(logging.DEBUG)

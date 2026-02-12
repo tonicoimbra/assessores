@@ -47,7 +47,7 @@ class TestSetupLogging:
 
     def test_returns_logger(self) -> None:
         logger = setup_logging()
-        assert logger.name == "copilot_juridico"
+        assert logger.name == "assessor_ai"
 
     def test_logger_has_handler(self) -> None:
         logger = setup_logging()
@@ -58,6 +58,7 @@ class TestValidateApiKey:
     """Test API key validation."""
 
     def test_exits_when_key_missing(self, monkeypatch) -> None:
+        monkeypatch.setattr("src.config.LLM_PROVIDER", "openai")
         monkeypatch.setattr("src.config.OPENAI_API_KEY", "")
         import pytest
 

@@ -8,7 +8,7 @@ from pathlib import Path
 from src.config import OUTPUTS_DIR
 from src.models import EstadoPipeline, ResultadoEtapa1, ResultadoEtapa2, ResultadoEtapa3
 
-logger = logging.getLogger("copilot_juridico")
+logger = logging.getLogger("assessor_ai")
 
 CHECKPOINT_DIR = OUTPUTS_DIR / ".checkpoints"
 

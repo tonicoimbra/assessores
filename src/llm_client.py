@@ -22,7 +22,7 @@ from src.config import (
     GOOGLE_API_KEY,
 )
 
-logger = logging.getLogger("copilot_juridico")
+logger = logging.getLogger("assessor_ai")
 
 
 class LLMError(Exception):

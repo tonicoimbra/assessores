@@ -11,7 +11,7 @@ import pdfplumber
 from src.config import MIN_TEXT_THRESHOLD
 from src.models import DocumentoEntrada, TipoDocumento
 
-logger = logging.getLogger("copilot_juridico")
+logger = logging.getLogger("assessor_ai")
 
 
 class PDFExtractionError(Exception):

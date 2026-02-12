@@ -1,4 +1,4 @@
-# Agentes de IA — Copilot Jurídico
+# Agentes de IA — Assessor.AI
 
 > Agentes especializados na stack do projeto para produção de código.
 

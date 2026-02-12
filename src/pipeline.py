@@ -41,7 +41,7 @@ from src.output_formatter import (
 from src.pdf_processor import extrair_texto
 from src.state_manager import limpar_checkpoints, restaurar_estado, salvar_estado
 
-logger = logging.getLogger("copilot_juridico")
+logger = logging.getLogger("assessor_ai")
 
 
 # --- 6.3 Global error handling ---
@@ -69,7 +69,7 @@ def _setup_file_logging() -> Path:
         datefmt="%Y-%m-%d %H:%M:%S",
     ))
 
-    root_logger = logging.getLogger("copilot_juridico")
+    root_logger = logging.getLogger("assessor_ai")
     if not any(isinstance(h, logging.FileHandler) for h in root_logger.handlers):
         root_logger.addHandler(file_handler)
 

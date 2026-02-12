@@ -1,4 +1,4 @@
-# SYSTEM PROMPT — Agente de Admissibilidade Recursal (TJPR)
+# SYSTEM PROMPT — Assessor.AI (TJPR)
 
 > **Versão:** 1.1.0
 > **Última atualização:** 2026-02-10

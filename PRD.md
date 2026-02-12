@@ -1,6 +1,6 @@
 # PRD — Agente de Admissibilidade Recursal (TJPR)
 
-> **Projeto:** Copilot Jurídico — Exame de Admissibilidade de Recurso Especial e Extraordinário
+> **Projeto:** Assessor.AI — Exame de Admissibilidade de Recurso Especial e Extraordinário
 > **Versão:** 1.0.0
 > **Data:** 2025-02-10
 > **Stack:** Python + OpenAI API + PDF Processing

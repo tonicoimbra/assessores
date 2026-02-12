@@ -1,7 +1,7 @@
 
 # Guia de Deploy Anti-Bloqueio 🚀
 
-Este guia descreve como colocar o **Copilot Jurídico** no ar em plataformas que utilizam portas padrão (443/HTTPS) e domínios confiáveis, minimizando a chance de bloqueio em redes corporativas.
+Este guia descreve como colocar o **Assessor.AI** no ar em plataformas que utilizam portas padrão (443/HTTPS) e domínios confiáveis, minimizando a chance de bloqueio em redes corporativas.
 
 ## Opção 1: Hugging Face Spaces (Recomendado 🌟)
 *Melhor custo-benefício (Grátis), HTTPS padrão, domínio `huggingface.co` geralmente liberado.*

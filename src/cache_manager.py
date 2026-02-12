@@ -9,7 +9,7 @@ from typing import Any
 
 from src.config import CACHE_TTL_HOURS, OUTPUTS_DIR
 
-logger = logging.getLogger("copilot_juridico")
+logger = logging.getLogger("assessor_ai")
 
 
 class CacheManager:

@@ -16,7 +16,7 @@ from src.llm_client import chamar_llm
 from src.model_router import TaskType, get_model_for_task
 from src.models import ResultadoEtapa1, ResultadoEtapa2, TemaEtapa2
 
-logger = logging.getLogger("copilot_juridico")
+logger = logging.getLogger("assessor_ai")
 
 
 # --- 4.3.1 Valid súmulas ---
