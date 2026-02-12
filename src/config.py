@@ -20,7 +20,7 @@ LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai")
 
 # OpenAI settings
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o")
+OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4.1")
 MAX_TOKENS: int = int(os.getenv("MAX_TOKENS", "2048"))
 TEMPERATURE: float = float(os.getenv("TEMPERATURE", "0.0"))
 
@@ -51,6 +51,8 @@ MAX_CONTEXT_TOKENS: int = int(os.getenv("MAX_CONTEXT_TOKENS", "25000"))  # Respe
 RATE_LIMIT_TPM: dict[str, int] = {
     # OpenAI
     "gpt-4o": 30_000,
+    "gpt-4.1": 30_000,
+    "gpt-4.1-mini": 200_000,
     "gpt-4o-mini": 200_000,
     "o1-preview": 30_000, # Assuming this is an OpenAI model or similar
     # OpenRouter (generous limits)
@@ -71,9 +73,9 @@ ENABLE_CACHING: bool = os.getenv("ENABLE_CACHING", "false").lower() == "true"
 ENABLE_PARALLEL_ETAPA2: bool = os.getenv("ENABLE_PARALLEL_ETAPA2", "false").lower() == "true"
 
 # Hybrid model configuration
-MODEL_CLASSIFICATION: str = os.getenv("MODEL_CLASSIFICATION", "gpt-4o-mini")
-MODEL_LEGAL_ANALYSIS: str = os.getenv("MODEL_LEGAL_ANALYSIS", "gpt-4o")
-MODEL_DRAFT_GENERATION: str = os.getenv("MODEL_DRAFT_GENERATION", "gpt-4o")
+MODEL_CLASSIFICATION: str = os.getenv("MODEL_CLASSIFICATION", "gpt-4.1-mini")
+MODEL_LEGAL_ANALYSIS: str = os.getenv("MODEL_LEGAL_ANALYSIS", "gpt-4.1")
+MODEL_DRAFT_GENERATION: str = os.getenv("MODEL_DRAFT_GENERATION", "gpt-4.1")
 
 # Cache configuration
 CACHE_TTL_HOURS: int = int(os.getenv("CACHE_TTL_HOURS", "24"))

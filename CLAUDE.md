@@ -4,11 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Sistema de análise automatizada de recursos jurídicos (Recurso Especial e Extraordinário) do TJPR (Tribunal de Justiça do Paraná). O sistema recebe PDFs fracionados de petições recursais e acórdãos, classifica automaticamente cada documento, executa um pipeline sequencial de 3 etapas via OpenAI API (GPT-4o) e produz uma minuta formal de decisão de admissibilidade.
+Sistema de análise automatizada de recursos jurídicos (Recurso Especial e Extraordinário) do TJPR (Tribunal de Justiça do Paraná). O sistema recebe PDFs fracionados de petições recursais e acórdãos, classifica automaticamente cada documento, executa um pipeline sequencial de 3 etapas via OpenAI API (GPT-4.1) e produz uma minuta formal de decisão de admissibilidade.
 
 **Contexto Jurídico:** O sistema analisa recursos judiciais destinados aos tribunais superiores (STJ/STF), verificando requisitos de admissibilidade conforme legislação processual civil brasileira. O output é uma minuta de decisão monocrática formatada segundo padrões do TJPR.
 
-**Stack:** Python 3.11+, OpenAI API (GPT-4o / GPT-4o-mini), PyMuPDF + pdfplumber, Pydantic, Flask, tiktoken, pytest
+**Stack:** Python 3.11+, OpenAI API (GPT-4.1 / GPT-4.1-mini), PyMuPDF + pdfplumber, Pydantic, Flask, tiktoken, pytest
+
+**LLM Providers:** OpenAI (default), OpenRouter, Google AI Studio (via env var `LLM_PROVIDER`)
 
 **Documentação completa:** `docs/README.md` (índice) → `docs/visao-geral.md`, `docs/arquitetura.md`, `docs/padroes-desenvolvimento.md`, etc.
 
@@ -83,21 +85,43 @@ PDFs (upload) → Extração de Texto → Classificação → Etapa 1 → 2 → 
 
 ### Hybrid Model Strategy
 - Controlada por feature flag `ENABLE_HYBRID_MODELS`
-- `gpt-4o-mini` para classificação de documentos (custo ~60-80% menor)
-- `gpt-4o` para análise jurídica (Etapas 1-3) — mantém qualidade
+- `gpt-4.1-mini` para classificação de documentos (93% mais econômico: $0.15/M input, $0.60/M output)
+- `gpt-4.1` para análise jurídica (Etapas 1-3) — mantém qualidade ($2.00/M input, $8.00/M output)
 - Modelos configuráveis via env vars: `MODEL_CLASSIFICATION`, `MODEL_LEGAL_ANALYSIS`, `MODEL_DRAFT_GENERATION`
+- Suporte a múltiplos providers: OpenAI, OpenRouter (deepseek, qwen, claude), Google AI Studio (gemini)
 
 ### Token Management & Chunking
 - `token_manager.py` estima tokens com `tiktoken` antes de cada chamada
-- Chunking inteligente para documentos que excedem 80% do limite de contexto (128k tokens GPT-4o)
+- Chunking inteligente para documentos que excedem 80% do limite de contexto (1M tokens GPT-4.1)
 - Budget ratio configurável via `TOKEN_BUDGET_RATIO` (default: 0.7)
 - Overlap entre chunks via `CHUNK_OVERLAP_TOKENS` (default: 500) para manter contexto
+- Rate limiting por modelo configurável em `RATE_LIMIT_TPM` (ex: GPT-4.1 = 30k TPM, GPT-4.1-mini = 200k TPM)
+- `MAX_CONTEXT_TOKENS` limita requisições a 25k tokens para respeitar TPM de 30k/min
 
 ### State Management & Recovery
 - `state_manager.py` serializa estado completo para checkpoints JSON
 - Recuperação após interrupções (falhas de API, timeout, abort do usuário)
 - Commands CLI: `status` (ver checkpoints), `limpar` (limpar checkpoints), `processar --continuar` (retomar)
 - Estado inclui: metadata de documentos, resultados de todas as etapas, tokens consumidos, timestamps
+
+### Rate Limiting Strategy
+- Feature flag `ENABLE_RATE_LIMITING` ativa gestão proativa de TPM (tokens per minute)
+- Configuração por modelo em `RATE_LIMIT_TPM` no `config.py`:
+  - GPT-4.1: 30k TPM
+  - GPT-4.1-mini: 200k TPM
+  - OpenRouter models: 40k-2M TPM (conforme provider)
+  - Google Gemini: 1M-2M TPM
+- Sistema aguarda automaticamente quando próximo do limite para evitar erros 429
+- `MAX_CONTEXT_TOKENS=25000` garante que requisições individuais não excedam TPM de 30k/min
+
+### Multi-Provider LLM Support
+- Sistema suporta 3 providers via env var `LLM_PROVIDER`:
+  - **openai** (default): GPT-4.1, GPT-4.1-mini, GPT-4o
+  - **openrouter**: DeepSeek R1/Chat, Qwen 2.5, Claude 3.5, Gemini (via proxy)
+  - **google**: Google AI Studio direct (Gemini 2.0/2.5 Flash)
+- Cada provider requer sua API key correspondente (`OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GOOGLE_API_KEY`)
+- `llm_client.py` abstrai diferenças entre providers com interface unificada
+- Modelos configuráveis por etapa: permite usar DeepSeek para classificação + GPT-4.1 para análise
 
 ## Common Commands
 
@@ -137,17 +161,21 @@ Definidas em `.env` (copiar de `.env.example`):
 ### Obrigatórias
 | Variável | Descrição | Default |
 |----------|-----------|---------|
-| `OPENAI_API_KEY` | Chave da API OpenAI | — (obrigatória) |
+| `LLM_PROVIDER` | Provider LLM (openai, openrouter, google) | `openai` |
+| `OPENAI_API_KEY` | Chave da API OpenAI (se provider=openai) | — (obrigatória) |
+| `OPENROUTER_API_KEY` | Chave da API OpenRouter (se provider=openrouter) | — |
+| `GOOGLE_API_KEY` | Chave da Google AI Studio (se provider=google) | — |
 
 ### LLM & Modelos
 | Variável | Descrição | Default |
 |----------|-----------|---------|
-| `OPENAI_MODEL` | Modelo principal | `gpt-4o` |
+| `OPENAI_MODEL` | Modelo principal | `gpt-4.1` |
 | `TEMPERATURE` | Temperatura de geração | `0.0` |
 | `MAX_TOKENS` | Tokens máximos por chamada | `2048` |
 | `LLM_TIMEOUT` | Timeout de requisição (segundos) | `120` |
 | `LLM_MAX_RETRIES` | Tentativas para erros transientes | `3` |
 | `LOG_LEVEL` | Nível de logging | `INFO` |
+| `OPENROUTER_BASE_URL` | URL base do OpenRouter | `https://openrouter.ai/api/v1` |
 
 ### Feature Flags
 | Variável | Descrição | Default |
@@ -161,16 +189,16 @@ Definidas em `.env` (copiar de `.env.example`):
 ### Configuração de Modelos Híbridos
 | Variável | Descrição | Default |
 |----------|-----------|---------|
-| `MODEL_CLASSIFICATION` | Modelo para classificação | `gpt-4o-mini` |
-| `MODEL_LEGAL_ANALYSIS` | Modelo para análise jurídica | `gpt-4o` |
-| `MODEL_DRAFT_GENERATION` | Modelo para geração de minuta | `gpt-4o` |
+| `MODEL_CLASSIFICATION` | Modelo para classificação | `gpt-4.1-mini` |
+| `MODEL_LEGAL_ANALYSIS` | Modelo para análise jurídica | `gpt-4.1` |
+| `MODEL_DRAFT_GENERATION` | Modelo para geração de minuta | `gpt-4.1` |
 
 ### Token & Cache
 | Variável | Descrição | Default |
 |----------|-----------|---------|
 | `TOKEN_BUDGET_RATIO` | Ratio do limite de contexto a usar como budget | `0.7` |
 | `CHUNK_OVERLAP_TOKENS` | Overlap de tokens entre chunks | `500` |
-| `MAX_CONTEXT_TOKENS` | Tokens máximos de contexto por requisição | `100000` |
+| `MAX_CONTEXT_TOKENS` | Tokens máximos de contexto por requisição (respeita TPM) | `25000` |
 | `CACHE_TTL_HOURS` | TTL do cache de respostas (horas) | `24` |
 | `ETAPA2_PARALLEL_WORKERS` | Workers paralelos na Etapa 2 | `3` |
 
@@ -187,7 +215,7 @@ agente_assessores/
 │   ├── etapa3.py                # Etapa 3 — Minuta
 │   ├── pdf_processor.py         # Extração de texto de PDFs
 │   ├── classifier.py            # Classificação de documentos
-│   ├── llm_client.py            # Cliente OpenAI com retry
+│   ├── llm_client.py            # Cliente LLM multi-provider com retry
 │   ├── prompt_loader.py         # Carregamento do prompt externo
 │   ├── models.py                # Modelos Pydantic
 │   ├── output_formatter.py      # Formatação de saída (.md/.docx)
@@ -211,7 +239,12 @@ agente_assessores/
 │   ├── test_pipeline_robust.py
 │   └── test_token_manager.py
 ├── prompts/
-│   └── SYSTEM_PROMPT.md         # Prompt principal (separado do código)
+│   ├── SYSTEM_PROMPT.md         # Prompt principal (separado do código)
+│   └── originais/               # Versões anteriores do prompt
+├── static/                      # Assets estáticos (CSS, JS) para Flask
+│   └── css/
+├── templates/                   # Templates HTML (Flask)
+│   └── web/
 ├── docs/                        # Documentação técnica
 │   ├── README.md                # Índice da documentação
 │   ├── visao-geral.md           # Visão geral do projeto
@@ -223,11 +256,12 @@ agente_assessores/
 │   ├── deploy.md
 │   └── prompt-refinement-sprint7.md
 ├── outputs/                     # Minutas geradas
-├── templates/                   # Templates HTML (Flask)
+│   └── web_uploads/             # Uploads temporários via web UI
+├── htmlcov/                     # Relatórios de cobertura de testes
 ├── PRD.md                       # Product Requirements Document
-├── SYSTEM_PROMPT.md             # Prompt do agente (raiz — referência)
-├── TASKS.md                     # Tracking de sprints/tarefas
+├── CLAUDE.md                    # Guia para Claude Code
 ├── AGENTS.md                    # Guia para agentes de IA
+├── TASKS.md                     # Tracking de sprints/tarefas
 ├── requirements.txt             # Dependências Python
 ├── Dockerfile                   # Containerização
 ├── docker-compose.yml           # Execução local simplificada
@@ -275,11 +309,13 @@ Gerado em `outputs/` (ou `--saida` override):
 ## Common Pitfalls
 
 - **PDF sem OCR:** PDFs escaneados sem texto extraível — pdfplumber fallback pode não resolver. Futuro: integrar Tesseract OCR
-- **Limite de contexto:** Casos grandes (>100 páginas) necessitam chunking — controlado por `token_manager.py` e flag `ENABLE_CHUNKING`
+- **Limite de contexto:** GPT-4.1 oferece 1M tokens de contexto, mas casos muito grandes ainda necessitam chunking — controlado por `token_manager.py` e flag `ENABLE_CHUNKING`
+- **Rate limits (TPM):** GPT-4.1 tem limite de 30k tokens/min. Sistema gerencia automaticamente via `ENABLE_RATE_LIMITING`, mas pode haver delays em documentos grandes. `MAX_CONTEXT_TOKENS=25000` previne exceder TPM em requisições únicas
 - **Citações alucinadas:** Validar todas as súmulas/precedentes contra listas permitidas em `etapa2.py`
-- **Rate limits:** `llm_client.py` faz retry com backoff exponencial — pode falhar sob carga sustentada
+- **Retry com backoff:** `llm_client.py` faz retry com backoff exponencial — pode falhar sob carga sustentada ou problemas de rede
 - **Temperatura alta:** Acima de 0.1 pode melhorar criatividade mas aumenta risco de alucinação — testar cuidadosamente
 - **Cache stale:** Se `ENABLE_CACHING=true`, respostas cached podem estar desatualizadas — ajustar `CACHE_TTL_HOURS` conforme necessidade
+- **Provider incorreto:** Validar que `LLM_PROVIDER` está configurado e a API key correspondente está presente (OpenAI, OpenRouter, ou Google)
 
 ## Integration Points
 
@@ -287,8 +323,12 @@ Gerado em `outputs/` (ou `--saida` override):
 - **Web API:** `web_app.py` fornece endpoints Flask para integrações externas:
   - `POST /upload` — recebe PDFs e retorna minuta processada
   - `GET /status` — consulta status de processamento
+  - Porta default: 7860 (Hugging Face Spaces compatible)
   - Integração com n8n via webhook para automação de fluxos
 - **Docker:** `Dockerfile` + `docker-compose.yml` para deploy containerizado
+- **Hugging Face Spaces:** Deploy via git remote `space` configurado no repositório
+  - Usa Docker SDK com porta 7860
+  - Requer Git LFS para arquivos >10MB (PDFs de manual)
 - **State files:** JSON parseável por ferramentas externas para monitoramento/auditoria
 - **Output files:** Formato `.md` facilmente convertível para outros formatos via pandoc
 

@@ -327,5 +327,6 @@ Do exposto, **[admito/inadmito/admito parcialmente]** o **[Recurso Especial/Extr
 | Versão | Data       | Alteração                                                                 |
 |--------|------------|---------------------------------------------------------------------------|
 | 2.0.0  | 2026-02-12 | Incorporação dos manuais STJ/Troiano; seção de Pressupostos Recursais; catálogo expandido de súmulas (123/STJ, 636/STF); regras de reexame vs. valoração; Súmula 126 e duplo fundamento; Súmula 283 e fundamentos inatacados; anotações automáticas para Súmula 518 e 280; paráfrase longa na Etapa 3; cenários de decisão parcial; reforço anti-alucinação |
+| 2.0.0  | 2026-02-12 | Atualização dos modelos: GPT-4.1 para análise jurídica (Etapas 1-3), GPT-4.1 mini para classificação de documentos |
 | 1.1.0  | 2026-02-10 | Ajustes de formato para parser, restrição de aspas e vedação de súmula nova |
 | 1.0.0  | 2025-02-10 | Versão inicial consolidada                                                |

@@ -103,6 +103,8 @@ PRICING = {
     # OpenAI models
     "gpt-4o": {"input": 2.50, "output": 10.00},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+    "gpt-4.1": {"input": 2.00, "output": 8.00},
+    "gpt-4.1-mini": {"input": 0.15, "output": 0.60},
     # OpenRouter models
     "deepseek/deepseek-r1": {"input": 0.55, "output": 2.19},
     "deepseek/deepseek-chat-v3-0324:free": {"input": 0.00, "output": 0.00},
