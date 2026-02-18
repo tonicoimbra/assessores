@@ -197,7 +197,7 @@
 
 - [x] **Fase A (P0 imediato)**: `PDF-*`, `CLS-*`, `E1-*`, `E2-*`, `E3-*`, `CTX-*`, `LLM-*`, `TST-*`.
 - [x] **Fase B (P1)**: `PRM-*`, `AUD-*`, `OBS-*`, `SEC-*`.
-- [ ] **Fase C (otimização)**: consenso multi-modelo, calibração de confiança e redução de custo sem perda de qualidade.
+- [x] **Fase C (otimização)**: consenso multi-modelo, calibração de confiança e redução de custo sem perda de qualidade.
 
 ## 14) Critérios de Pronto para Produção
 
