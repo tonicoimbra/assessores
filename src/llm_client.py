@@ -3,7 +3,9 @@
 import json
 import logging
 import time
+from hashlib import sha256
 from dataclasses import dataclass, field
+from typing import Any
 
 from openai import APIConnectionError, APITimeoutError, OpenAI, RateLimitError
 
@@ -99,6 +101,58 @@ token_tracker = TokenTracker()
 # Global clients for reuse
 _client = None
 _google_client = None
+_IDEMPOTENCY_CACHE: dict[str, dict[str, Any]] = {}
+
+
+def _serialize_response(response: LLMResponse) -> dict[str, Any]:
+    """Serialize LLMResponse to deterministic dict for idempotency cache."""
+    return {
+        "content": response.content,
+        "tokens": {
+            "prompt_tokens": response.tokens.prompt_tokens,
+            "completion_tokens": response.tokens.completion_tokens,
+            "total_tokens": response.tokens.total_tokens,
+            "finish_reason": response.tokens.finish_reason,
+            "latency_ms": response.tokens.latency_ms,
+        },
+        "model": response.model,
+        "finish_reason": response.finish_reason,
+    }
+
+
+def _deserialize_response(payload: dict[str, Any]) -> LLMResponse:
+    """Deserialize idempotency/cache payload into LLMResponse."""
+    tokens_payload = payload.get("tokens")
+    if isinstance(tokens_payload, dict):
+        tokens = TokenUsage(**tokens_payload)
+    else:
+        tokens = TokenUsage()
+    return LLMResponse(
+        content=str(payload.get("content") or ""),
+        tokens=tokens,
+        model=str(payload.get("model") or ""),
+        finish_reason=str(payload.get("finish_reason") or "unknown"),
+    )
+
+
+def _build_idempotency_fingerprint(
+    *,
+    model: str,
+    messages: list[ChatMessage],
+    max_tokens: int | None,
+    temperature: float | None,
+    response_format: dict | None,
+) -> str:
+    """Create deterministic request fingerprint used for request_id idempotency."""
+    payload = {
+        "model": model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "response_format": response_format or {},
+    }
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    return sha256(raw.encode("utf-8")).hexdigest()
 
 
 def _get_client(model_name: str | None = None) -> OpenAI:
@@ -401,6 +455,7 @@ def chamar_llm_with_rate_limit(
         LLMError: After all retries exhausted.
     """
     modelo = kwargs.get("model") or OPENAI_MODEL
+    request_id = str(kwargs.pop("request_id", "") or "").strip()
     token_manager = _get_token_manager()
     prepared_messages = _prepare_messages(
         system_prompt=system_prompt,
@@ -408,6 +463,31 @@ def chamar_llm_with_rate_limit(
         messages=messages,
     )
     prompt_blob = _messages_to_text(prepared_messages)
+    response_format = kwargs.get("response_format")
+    request_fingerprint = ""
+    if request_id:
+        request_fingerprint = _build_idempotency_fingerprint(
+            model=str(modelo),
+            messages=prepared_messages,
+            max_tokens=kwargs.get("max_tokens"),
+            temperature=kwargs.get("temperature"),
+            response_format=response_format if isinstance(response_format, dict) else None,
+        )
+        cached_idempotent = _IDEMPOTENCY_CACHE.get(request_id)
+        if cached_idempotent:
+            cached_fp = str(cached_idempotent.get("fingerprint") or "")
+            if cached_fp and cached_fp != request_fingerprint:
+                raise LLMError(
+                    "request_id reutilizado com payload diferente. "
+                    "Use um novo request_id para esta chamada."
+                )
+            cached_response = cached_idempotent.get("response")
+            if isinstance(cached_response, dict):
+                logger.info(
+                    "♻️ Idempotência ativada: retornando resposta já registrada para request_id=%s",
+                    request_id,
+                )
+                return _deserialize_response(cached_response)
 
     # Estimate tokens before calling API
     estimated_prompt = token_manager.estimate_tokens(prompt_blob, modelo)
@@ -434,7 +514,6 @@ def chamar_llm_with_rate_limit(
     if not isinstance(cache_context, dict):
         cache_context = {"value": str(cache_context)}
 
-    response_format = kwargs.get("response_format")
     use_cache = kwargs.pop("use_cache", True) and ENABLE_CACHING
     cache_identity: tuple[str, str] | None = None
     if use_cache:
@@ -468,7 +547,13 @@ def chamar_llm_with_rate_limit(
                 tokens_data = cached.get("tokens", {})
                 if isinstance(tokens_data, dict):
                     cached["tokens"] = TokenUsage(**tokens_data)
-                return LLMResponse(**cached)
+                response = LLMResponse(**cached)
+                if request_id:
+                    _IDEMPOTENCY_CACHE[request_id] = {
+                        "fingerprint": request_fingerprint,
+                        "response": _serialize_response(response),
+                    }
+                return response
 
     # Call raw LLM function
     response = _chamar_llm_raw(
@@ -512,6 +597,12 @@ def chamar_llm_with_rate_limit(
                 },
                 category=category,
             )
+
+    if request_id:
+        _IDEMPOTENCY_CACHE[request_id] = {
+            "fingerprint": request_fingerprint,
+            "response": _serialize_response(response),
+        }
 
     return response
 

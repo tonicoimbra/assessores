@@ -316,6 +316,67 @@ class TestChamarLLM:
         assert mock_call.call_args_list[0].kwargs["response_format"]["type"] == "json_schema"
         assert mock_call.call_args_list[1].kwargs["response_format"]["type"] == "json_object"
 
+    @patch("src.llm_client._get_client")
+    def test_request_id_idempotency_reuses_previous_response(self, mock_get_client, monkeypatch) -> None:
+        mock_choice = MagicMock()
+        mock_choice.finish_reason = "stop"
+        mock_choice.message.content = "resposta idempotente"
+
+        mock_usage = MagicMock()
+        mock_usage.prompt_tokens = 12
+        mock_usage.completion_tokens = 8
+        mock_usage.total_tokens = 20
+
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_response.usage = mock_usage
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_get_client.return_value = mock_client
+
+        from src.llm_client import _IDEMPOTENCY_CACHE, chamar_llm_with_rate_limit
+
+        _IDEMPOTENCY_CACHE.clear()
+        monkeypatch.setattr("src.llm_client.ENABLE_CACHING", False)
+
+        r1 = chamar_llm_with_rate_limit("sys", "user", request_id="req-123", max_tokens=32)
+        r2 = chamar_llm_with_rate_limit("sys", "user", request_id="req-123", max_tokens=32)
+
+        assert r1.content == "resposta idempotente"
+        assert r2.content == "resposta idempotente"
+        assert mock_client.chat.completions.create.call_count == 1
+
+    @patch("src.llm_client._get_client")
+    def test_request_id_idempotency_rejects_different_payload(self, mock_get_client, monkeypatch) -> None:
+        mock_choice = MagicMock()
+        mock_choice.finish_reason = "stop"
+        mock_choice.message.content = "primeira resposta"
+
+        mock_usage = MagicMock()
+        mock_usage.prompt_tokens = 10
+        mock_usage.completion_tokens = 5
+        mock_usage.total_tokens = 15
+
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_response.usage = mock_usage
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_get_client.return_value = mock_client
+
+        from src.llm_client import _IDEMPOTENCY_CACHE, chamar_llm_with_rate_limit
+
+        _IDEMPOTENCY_CACHE.clear()
+        monkeypatch.setattr("src.llm_client.ENABLE_CACHING", False)
+
+        chamar_llm_with_rate_limit("sys", "user-a", request_id="req-xyz", max_tokens=32)
+        with pytest.raises(LLMError):
+            chamar_llm_with_rate_limit("sys", "user-b", request_id="req-xyz", max_tokens=32)
+
+        assert mock_client.chat.completions.create.call_count == 1
+
 
 # --- 2.4.6: Integration test (slow, requires API key) ---
 
