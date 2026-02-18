@@ -1,7 +1,9 @@
 """Output formatter: markdown formatting, file saving, and audit reports."""
 
+import json
 import logging
 import re
+from hashlib import sha256
 from datetime import datetime
 from pathlib import Path
 
@@ -53,6 +55,7 @@ def formatar_minuta(resultado: ResultadoEtapa3, estado: EstadoPipeline | None = 
     for pattern, repl in [
         (r"\b(ADMITO)\b", r"**\1**"),
         (r"\b(INADMITO)\b", r"**\1**"),
+        (r"\b(INCONCLUSIVO)\b", r"**\1**"),
     ]:
         minuta = re.sub(pattern, repl, minuta)
 
@@ -219,6 +222,74 @@ def salvar_minuta_docx(
 # --- 5.3.4 Audit report ---
 
 
+def _build_audit_payload(
+    estado: EstadoPipeline,
+    alertas: list[str] | None = None,
+    numero_processo: str = "sem_numero",
+) -> dict:
+    """Build structured audit payload shared by markdown and JSON outputs."""
+    meta = estado.metadata
+    r1 = estado.resultado_etapa1
+    r2 = estado.resultado_etapa2
+    r3 = estado.resultado_etapa3
+
+    return {
+        "processo": numero_processo,
+        "execucao_id": meta.execucao_id,
+        "gerado_em": datetime.now().isoformat(),
+        "tokens": {
+            "modelo": meta.modelo_usado or "N/A",
+            "prompt_tokens": meta.prompt_tokens,
+            "completion_tokens": meta.completion_tokens,
+            "total_tokens": meta.total_tokens,
+        },
+        "llm_stats": meta.llm_stats,
+        "prompt": {
+            "profile": meta.prompt_profile,
+            "version": meta.prompt_version,
+            "hash_sha256": meta.prompt_hash_sha256,
+        },
+        "modelos_utilizados": {
+            "etapa1": meta.modelos_utilizados.get("Etapa 1", "N/A"),
+            "etapa2": meta.modelos_utilizados.get("Etapa 2", "N/A"),
+            "etapa3": meta.modelos_utilizados.get("Etapa 3", "N/A"),
+        },
+        "confianca": {
+            "por_etapa": meta.confianca_por_etapa,
+            "por_campo_etapa1": meta.confianca_campos_etapa1,
+            "por_tema_etapa2": meta.confianca_temas_etapa2,
+            "global": meta.confianca_global,
+        },
+        "escalonamento": meta.politica_escalonamento,
+        "chunking_auditoria": meta.chunking_auditoria,
+        "motivo_bloqueio": {
+            "codigo": meta.motivo_bloqueio_codigo,
+            "descricao": meta.motivo_bloqueio_descricao,
+        },
+        "pipeline": {
+            "etapa1": bool(r1),
+            "etapa2": {
+                "executada": bool(r2),
+                "temas": len(r2.temas) if r2 else 0,
+            },
+            "etapa3": {
+                "executada": bool(r3),
+                "decisao": r3.decisao.value if r3 and r3.decisao else "N/A",
+                "fundamentos_decisao": r3.fundamentos_decisao if r3 else [],
+                "itens_evidencia_usados": r3.itens_evidencia_usados if r3 else [],
+                "aviso_inconclusivo": bool(r3.aviso_inconclusivo) if r3 else False,
+                "motivo_bloqueio_codigo": r3.motivo_bloqueio_codigo if r3 else "",
+                "motivo_bloqueio_descricao": r3.motivo_bloqueio_descricao if r3 else "",
+            },
+        },
+        "timeline": {
+            "inicio": meta.inicio.isoformat() if meta.inicio else None,
+            "fim": meta.fim.isoformat() if meta.fim else None,
+        },
+        "alertas_validacao": alertas or [],
+    }
+
+
 def gerar_relatorio_auditoria(
     estado: EstadoPipeline,
     alertas: list[str] | None = None,
@@ -227,61 +298,220 @@ def gerar_relatorio_auditoria(
 ) -> Path:
     """Generate audit report alongside the draft."""
     target_dir = _resolver_output_dir(output_dir)
-
     safe_proc = re.sub(r"[^\w\-.]", "_", numero_processo)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filepath = target_dir / f"auditoria_{safe_proc}_{timestamp}.md"
+    payload = _build_audit_payload(estado, alertas=alertas, numero_processo=numero_processo)
 
-    meta = estado.metadata
-    r2 = estado.resultado_etapa2
-    r3 = estado.resultado_etapa3
+    tokens = payload["tokens"]
+    llm_stats = payload["llm_stats"]
+    prompt = payload["prompt"]
+    modelos = payload["modelos_utilizados"]
+    confianca = payload["confianca"]
+    escalonamento = payload["escalonamento"]
+    chunking_auditoria = payload["chunking_auditoria"]
+    motivo_bloqueio = payload["motivo_bloqueio"]
+    pipeline = payload["pipeline"]
+    timeline = payload["timeline"]
+    alertas_lista = payload["alertas_validacao"]
 
     lines = [
         "# Relatório de Auditoria",
         "",
         f"**Processo:** {numero_processo}",
+        f"**Execução:** {payload['execucao_id'] or 'N/A'}",
         f"**Data:** {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
         "",
         "## Tokens Utilizados",
         "",
         "| Métrica | Valor |",
         "|---------|-------|",
-        f"| Modelo | {meta.modelo_usado or 'N/A'} |",
-        f"| Prompt tokens | {meta.prompt_tokens} |",
-        f"| Completion tokens | {meta.completion_tokens} |",
-        f"| **Total tokens** | **{meta.total_tokens}** |",
+        f"| Modelo | {tokens['modelo']} |",
+        f"| Prompt tokens | {tokens['prompt_tokens']} |",
+        f"| Completion tokens | {tokens['completion_tokens']} |",
+        f"| **Total tokens** | **{tokens['total_tokens']}** |",
+        "",
+        "## Métricas LLM",
+        "",
+        f"- Chamadas totais: {int(llm_stats.get('total_calls', 0))}",
+        f"- Chamadas truncadas: {int(llm_stats.get('calls_truncadas', 0))}",
+        f"- Latência média: {llm_stats.get('latencia_media_ms', 0.0):.2f} ms",
+        "",
+        "## Assinatura de Prompt",
+        "",
+        f"- Profile: `{prompt['profile'] or 'N/A'}`",
+        f"- Version: `{prompt['version'] or 'N/A'}`",
+        f"- Hash SHA-256: `{prompt['hash_sha256'] or 'N/A'}`",
         "",
         "## Modelos Utilizados",
         "",
         "| Etapa | Modelo |",
         "|-------|--------|",
-        f"| Etapa 1 (Análise Recursal) | {meta.modelos_utilizados.get('Etapa 1', 'N/A')} |",
-        f"| Etapa 2 (Análise Direito) | {meta.modelos_utilizados.get('Etapa 2', 'N/A')} |",
-        f"| Etapa 3 (Geração Minuta) | {meta.modelos_utilizados.get('Etapa 3', 'N/A')} |",
+        f"| Etapa 1 (Análise Recursal) | {modelos['etapa1']} |",
+        f"| Etapa 2 (Análise Direito) | {modelos['etapa2']} |",
+        f"| Etapa 3 (Geração Minuta) | {modelos['etapa3']} |",
+        "",
+        "## Confiança",
+        "",
+        f"- Global: **{confianca['global']:.3f}**",
+        f"- Etapa 1: {confianca['por_etapa'].get('etapa1', 0.0):.3f}",
+        f"- Etapa 2: {confianca['por_etapa'].get('etapa2', 0.0):.3f}",
+        f"- Etapa 3: {confianca['por_etapa'].get('etapa3', 0.0):.3f}",
+        f"- Campos críticos (Etapa 1): {confianca['por_campo_etapa1'] or {}}",
+        f"- Temas (Etapa 2): {confianca['por_tema_etapa2'] or {}}",
+        "",
+        "## Escalonamento por Confiança",
+        "",
+        f"- Ativo: {'Sim' if bool(escalonamento.get('ativo')) else 'Não'}",
+        f"- Escalonar revisão humana: {'Sim' if bool(escalonamento.get('escalonar')) else 'Não'}",
+        f"- Thresholds: {escalonamento.get('thresholds', {})}",
+        "",
+        "## Chunking Auditável",
+        "",
+        f"- Dados de chunking por etapa: {chunking_auditoria or {}}",
+        "",
+        "## Motivo de Bloqueio",
+        "",
+        f"- Código: {motivo_bloqueio['codigo'] or 'N/A'}",
+        f"- Descrição: {motivo_bloqueio['descricao'] or 'N/A'}",
         "",
         "## Pipeline",
         "",
         "| Etapa | Status |",
         "|-------|--------|",
-        f"| Etapa 1 | {'✅' if estado.resultado_etapa1 else '❌'} |",
-        f"| Etapa 2 | {'✅ ' + str(len(r2.temas)) + ' temas' if r2 else '❌'} |",
-        f"| Etapa 3 | {'✅ ' + (r3.decisao.value if r3 and r3.decisao else 'sem decisão') if r3 else '❌'} |",
+        f"| Etapa 1 | {'✅' if pipeline['etapa1'] else '❌'} |",
+        f"| Etapa 2 | {'✅ ' + str(pipeline['etapa2']['temas']) + ' temas' if pipeline['etapa2']['executada'] else '❌'} |",
+        f"| Etapa 3 | {'✅ ' + pipeline['etapa3']['decisao'] if pipeline['etapa3']['executada'] else '❌'} |",
         "",
     ]
 
-    if meta.inicio:
-        lines.append(f"**Início:** {meta.inicio.isoformat()}")
-    if meta.fim:
-        lines.append(f"**Fim:** {meta.fim.isoformat()}")
+    if timeline["inicio"]:
+        lines.append(f"**Início:** {timeline['inicio']}")
+    if timeline["fim"]:
+        lines.append(f"**Fim:** {timeline['fim']}")
 
-    if alertas:
+    if alertas_lista:
         lines.extend(["", "## Alertas de Validação", ""])
-        for alerta in alertas:
+        for alerta in alertas_lista:
             lines.append(f"- ⚠️ {alerta}")
+    motivos_escalonamento = escalonamento.get("motivos", [])
+    if motivos_escalonamento:
+        lines.extend(["", "## Motivos de Escalonamento", ""])
+        for motivo in motivos_escalonamento:
+            lines.append(f"- {motivo}")
 
     lines.append("")
 
     filepath.write_text("\n".join(lines), encoding="utf-8")
     logger.info("📊 Relatório de auditoria salvo em: %s", filepath)
 
+    return filepath
+
+
+def salvar_trilha_auditoria_json(
+    estado: EstadoPipeline,
+    alertas: list[str] | None = None,
+    numero_processo: str = "sem_numero",
+    output_dir: Path | None = None,
+) -> Path:
+    """Save structured audit trail as JSON."""
+    target_dir = _resolver_output_dir(output_dir)
+    safe_proc = re.sub(r"[^\w\-.]", "_", numero_processo)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filepath = target_dir / f"auditoria_{safe_proc}_{timestamp}.json"
+
+    payload = _build_audit_payload(estado, alertas=alertas, numero_processo=numero_processo)
+    filepath.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    logger.info("🧾 Trilha de auditoria JSON salva em: %s", filepath)
+    return filepath
+
+
+def _preview_text(texto: str, limit: int = 500) -> str:
+    """Return compact preview of a potentially large text."""
+    bruto = str(texto or "")
+    compact = re.sub(r"\s+", " ", bruto).strip()
+    if len(compact) <= limit:
+        return compact
+    return compact[:limit].rstrip() + "..."
+
+
+def _hash_text(texto: str) -> str:
+    """Return stable SHA-256 hash for source text traceability."""
+    return sha256(str(texto or "").encode("utf-8")).hexdigest()
+
+
+def salvar_snapshot_execucao_json(
+    estado: EstadoPipeline,
+    validacoes: dict[str, list[str]] | None = None,
+    arquivos_saida: dict[str, str] | None = None,
+    numero_processo: str = "sem_numero",
+    output_dir: Path | None = None,
+) -> Path:
+    """Persist full execution snapshot with inputs, outputs and stage validations."""
+    target_dir = _resolver_output_dir(output_dir)
+    safe_proc = re.sub(r"[^\w\-.]", "_", numero_processo)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filepath = target_dir / f"snapshot_execucao_{safe_proc}_{timestamp}.json"
+
+    documentos = []
+    for doc in estado.documentos_entrada:
+        documentos.append(
+            {
+                "filepath": doc.filepath,
+                "tipo": doc.tipo.value if doc.tipo else "DESCONHECIDO",
+                "num_paginas": doc.num_paginas,
+                "num_caracteres": doc.num_caracteres,
+                "texto_extraido_hash": _hash_text(doc.texto_extraido),
+                "texto_extraido_preview": _preview_text(doc.texto_extraido),
+            }
+        )
+
+    payload = {
+        "snapshot_schema_version": "1.0.0",
+        "processo_id": numero_processo,
+        "gerado_em": datetime.now().isoformat(),
+        "inputs": {
+            "documentos": documentos,
+        },
+        "stages": {
+            "etapa1": {
+                "executada": estado.resultado_etapa1 is not None,
+                "resultado": (
+                    estado.resultado_etapa1.model_dump(mode="json")
+                    if estado.resultado_etapa1
+                    else None
+                ),
+                "validacao_erros": (validacoes or {}).get("etapa1", []),
+            },
+            "etapa2": {
+                "executada": estado.resultado_etapa2 is not None,
+                "resultado": (
+                    estado.resultado_etapa2.model_dump(mode="json")
+                    if estado.resultado_etapa2
+                    else None
+                ),
+                "validacao_erros": (validacoes or {}).get("etapa2", []),
+            },
+            "etapa3": {
+                "executada": estado.resultado_etapa3 is not None,
+                "resultado": (
+                    estado.resultado_etapa3.model_dump(mode="json")
+                    if estado.resultado_etapa3
+                    else None
+                ),
+                "validacao_erros": (validacoes or {}).get("etapa3", []),
+            },
+        },
+        "metadata": estado.metadata.model_dump(mode="json"),
+        "outputs": arquivos_saida or {},
+    }
+
+    filepath.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    logger.info("🧷 Snapshot de execução salvo em: %s", filepath)
     return filepath

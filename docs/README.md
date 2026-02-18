@@ -16,6 +16,7 @@
 | [glossario.md](glossario.md) | Termos jurídicos e técnicos usados no projeto |
 | [deploy.md](deploy.md) | Opções de deploy local, VPS (Contabo) e integração com n8n |
 | [prompt-refinement-sprint7.md](prompt-refinement-sprint7.md) | Evidências e ajustes de prompt realizados na Sprint 7.1 |
+| [criterios-aceite-qualidade.md](criterios-aceite-qualidade.md) | Gates formais de qualidade, baseline ouro e política fail-closed |
 
 ---
 

@@ -1,0 +1,122 @@
+{
+  "dataset_version": "1.0.0",
+  "case_id": "golden_case_002_inconclusivo",
+  "description": "Caso canônico inconclusivo com bloqueio explícito na etapa 3.",
+  "inputs": {
+    "pdfs": [
+      {
+        "filename": "recurso_case_002.pdf",
+        "tipo": "RECURSO",
+        "texto": "PROJUDI - Recurso: 0009999-11.2024.8.16.0001. Recorrente: EMPRESA TESTE LTDA."
+      },
+      {
+        "filename": "acordao_case_002.pdf",
+        "tipo": "ACORDAO",
+        "texto": "ACÓRDÃO. Há referências contraditórias sobre a tempestividade e ausência de documentos essenciais."
+      }
+    ]
+  },
+  "mock_pipeline_results": {
+    "etapa1": {
+      "numero_processo": "0009999-11.2024.8.16.0001",
+      "recorrente": "EMPRESA TESTE LTDA",
+      "recorrido": "ESTADO DO PARANA",
+      "especie_recurso": "RECURSO ESPECIAL",
+      "permissivo_constitucional": "art. 105, III, a, da CF",
+      "camara_civel": "2ª Câmara Cível",
+      "dispositivos_violados": [
+        "art. 1.022 do CPC"
+      ],
+      "justica_gratuita": false,
+      "efeito_suspensivo": false,
+      "evidencias_campos": {
+        "numero_processo": {
+          "citacao_literal": "PROJUDI - Recurso: 0009999-11.2024.8.16.0001",
+          "pagina": 1,
+          "ancora": "PROJUDI - Recurso",
+          "offset_inicio": 0
+        },
+        "recorrente": {
+          "citacao_literal": "Recorrente: EMPRESA TESTE LTDA",
+          "pagina": 1,
+          "ancora": "Recorrente",
+          "offset_inicio": 20
+        },
+        "especie_recurso": {
+          "citacao_literal": "Recurso Especial",
+          "pagina": 1,
+          "ancora": "Recurso Especial",
+          "offset_inicio": 60
+        }
+      },
+      "verificacao_campos": {
+        "numero_processo": true,
+        "recorrente": true,
+        "especie_recurso": true
+      },
+      "inconclusivo": false,
+      "motivo_inconclusivo": "",
+      "texto_formatado": "Bloco Técnico da Etapa 1."
+    },
+    "etapa2": {
+      "temas": [
+        {
+          "materia_controvertida": "Tempestividade recursal em cenário documental inconsistente.",
+          "conclusao_fundamentos": "O acórdão menciona datas conflitantes sem permitir conclusão segura.",
+          "base_vinculante": "Sem precedente vinculante explícito.",
+          "obices_sumulas": [
+            "Súmula 284/STF"
+          ],
+          "trecho_transcricao": "As datas indicadas são contraditórias e inviabilizam conclusão unívoca.",
+          "evidencias_campos": {
+            "materia_controvertida": {
+              "citacao_literal": "Tempestividade recursal",
+              "pagina": 3,
+              "ancora": "tempestividade",
+              "offset_inicio": 12
+            },
+            "conclusao_fundamentos": {
+              "citacao_literal": "datas conflitantes sem permitir conclusão segura",
+              "pagina": 3,
+              "ancora": "datas conflitantes",
+              "offset_inicio": 44
+            },
+            "obices_sumulas": {
+              "citacao_literal": "Súmula 284/STF",
+              "pagina": 3,
+              "ancora": "Súmula 284/STF",
+              "offset_inicio": 70
+            },
+            "trecho_transcricao": {
+              "citacao_literal": "inviabilizam conclusão unívoca",
+              "pagina": 3,
+              "ancora": "conclusão unívoca",
+              "offset_inicio": 90
+            }
+          }
+        }
+      ],
+      "texto_formatado": "Tema 1 estruturado."
+    },
+    "etapa3": {
+      "minuta_completa": "AVISO: Decisão jurídica inconclusiva: Requer análise adicional.",
+      "decisao": "INCONCLUSIVO",
+      "fundamentos_decisao": [
+        "Dados contraditórios entre os documentos quanto à tempestividade."
+      ],
+      "itens_evidencia_usados": [
+        "Etapa 2/tema 1: evidências conflitantes sobre datas (p.3)."
+      ],
+      "aviso_inconclusivo": true,
+      "motivo_bloqueio_codigo": "E3_INCONCLUSIVO",
+      "motivo_bloqueio_descricao": "Dados insuficientes para decisão conclusiva."
+    }
+  },
+  "expected": {
+    "decisao": "INCONCLUSIVO",
+    "temas_count": 1,
+    "obice_contains": "Súmula 284",
+    "confianca_global_max": 0.49,
+    "motivo_bloqueio_codigo": "E3_INCONCLUSIVO"
+  }
+}

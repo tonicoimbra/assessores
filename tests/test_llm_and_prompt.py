@@ -5,8 +5,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from src.cache_manager import CacheManager
 from src.config import PROMPTS_DIR
-from src.llm_client import LLMError, LLMResponse, TokenTracker, TokenUsage
+from src.llm_client import (
+    LLMError,
+    LLMResponse,
+    LLMTruncatedResponseError,
+    TokenTracker,
+    TokenUsage,
+)
 
 
 # --- 2.4.1: Prompt loading and section extraction ---
@@ -70,16 +77,36 @@ class TestTokenTracker:
         tracker = TokenTracker()
         assert tracker.total_tokens == 0
         assert tracker.total_calls == 0
+        assert tracker.total_truncated_calls == 0
+        assert tracker.average_latency_ms == 0.0
 
     def test_registers_usage(self) -> None:
         tracker = TokenTracker()
-        tracker.registrar(TokenUsage(prompt_tokens=100, completion_tokens=50, total_tokens=150))
-        tracker.registrar(TokenUsage(prompt_tokens=200, completion_tokens=100, total_tokens=300))
+        tracker.registrar(
+            TokenUsage(
+                prompt_tokens=100,
+                completion_tokens=50,
+                total_tokens=150,
+                finish_reason="stop",
+                latency_ms=100.0,
+            )
+        )
+        tracker.registrar(
+            TokenUsage(
+                prompt_tokens=200,
+                completion_tokens=100,
+                total_tokens=300,
+                finish_reason="length",
+                latency_ms=300.0,
+            )
+        )
 
         assert tracker.total_prompt_tokens == 300
         assert tracker.total_completion_tokens == 150
         assert tracker.total_tokens == 450
         assert tracker.total_calls == 2
+        assert tracker.total_truncated_calls == 1
+        assert tracker.average_latency_ms == 200.0
 
 
 # --- LLM client with mocks ---
@@ -118,7 +145,7 @@ class TestChamarLLM:
         assert result.finish_reason == "stop"
 
     @patch("src.llm_client._get_client")
-    def test_truncated_response_warning(self, mock_get_client, caplog) -> None:
+    def test_truncated_response_retries_and_raises(self, mock_get_client, caplog) -> None:
         mock_choice = MagicMock()
         mock_choice.finish_reason = "length"
         mock_choice.message.content = "resposta truncada..."
@@ -139,10 +166,102 @@ class TestChamarLLM:
         from src.llm_client import chamar_llm
 
         with caplog.at_level("WARNING"):
-            result = chamar_llm("system", "user")
+            with pytest.raises(LLMTruncatedResponseError):
+                chamar_llm("system", "user")
 
-        assert result.finish_reason == "length"
         assert any("truncada" in r.message for r in caplog.records)
+        assert mock_client.chat.completions.create.call_count >= 2
+
+    @patch("src.llm_client._get_client")
+    def test_cache_hit_when_signature_is_identical(self, mock_get_client, tmp_path: Path, monkeypatch) -> None:
+        mock_choice = MagicMock()
+        mock_choice.finish_reason = "stop"
+        mock_choice.message.content = "resposta cacheável"
+
+        mock_usage = MagicMock()
+        mock_usage.prompt_tokens = 10
+        mock_usage.completion_tokens = 5
+        mock_usage.total_tokens = 15
+
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_response.usage = mock_usage
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_get_client.return_value = mock_client
+
+        from src.llm_client import chamar_llm_with_rate_limit
+
+        cache = CacheManager(cache_dir=tmp_path / ".cache", ttl_hours=1)
+        monkeypatch.setattr("src.llm_client.ENABLE_CACHING", True)
+        monkeypatch.setattr("src.llm_client._get_cache_manager", lambda: cache)
+
+        kwargs = {
+            "model": "gpt-4o-mini",
+            "max_tokens": 32,
+            "cache_context": {
+                "prompt_version": "v1",
+                "prompt_hash_sha256": "abc123",
+                "schema_version": "json_object",
+            },
+        }
+        r1 = chamar_llm_with_rate_limit("sys", "user", **kwargs)
+        r2 = chamar_llm_with_rate_limit("sys", "user", **kwargs)
+
+        assert r1.content == "resposta cacheável"
+        assert r2.content == "resposta cacheável"
+        assert mock_client.chat.completions.create.call_count == 1
+
+    @patch("src.llm_client._get_client")
+    def test_cache_isolated_by_prompt_version(self, mock_get_client, tmp_path: Path, monkeypatch) -> None:
+        mock_choice = MagicMock()
+        mock_choice.finish_reason = "stop"
+        mock_choice.message.content = "resposta com isolamento"
+
+        mock_usage = MagicMock()
+        mock_usage.prompt_tokens = 10
+        mock_usage.completion_tokens = 5
+        mock_usage.total_tokens = 15
+
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_response.usage = mock_usage
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_get_client.return_value = mock_client
+
+        from src.llm_client import chamar_llm_with_rate_limit
+
+        cache = CacheManager(cache_dir=tmp_path / ".cache", ttl_hours=1)
+        monkeypatch.setattr("src.llm_client.ENABLE_CACHING", True)
+        monkeypatch.setattr("src.llm_client._get_cache_manager", lambda: cache)
+
+        chamar_llm_with_rate_limit(
+            "sys",
+            "user",
+            model="gpt-4o-mini",
+            max_tokens=32,
+            cache_context={
+                "prompt_version": "v1",
+                "prompt_hash_sha256": "abc123",
+                "schema_version": "json_object",
+            },
+        )
+        chamar_llm_with_rate_limit(
+            "sys",
+            "user",
+            model="gpt-4o-mini",
+            max_tokens=32,
+            cache_context={
+                "prompt_version": "v2",
+                "prompt_hash_sha256": "abc123",
+                "schema_version": "json_object",
+            },
+        )
+
+        assert mock_client.chat.completions.create.call_count == 2
 
 
 # --- 2.4.6: Integration test (slow, requires API key) ---

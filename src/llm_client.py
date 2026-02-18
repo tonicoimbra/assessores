@@ -24,6 +24,8 @@ from src.config import (
 
 logger = logging.getLogger("assessor_ai")
 
+ChatMessage = dict[str, str]
+
 
 class LLMError(Exception):
     """Raised when LLM call fails after all retries."""
@@ -40,6 +42,8 @@ class TokenUsage:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+    finish_reason: str = "unknown"
+    latency_ms: float = 0.0
 
 
 @dataclass
@@ -73,6 +77,16 @@ class TokenTracker:
     @property
     def total_calls(self) -> int:
         return len(self.calls)
+
+    @property
+    def total_truncated_calls(self) -> int:
+        return sum(1 for t in self.calls if (t.finish_reason or "") != "stop")
+
+    @property
+    def average_latency_ms(self) -> float:
+        if not self.calls:
+            return 0.0
+        return sum(float(t.latency_ms or 0.0) for t in self.calls) / len(self.calls)
 
     def registrar(self, usage: TokenUsage) -> None:
         """Register token usage from a call."""
@@ -147,10 +161,77 @@ def _get_cache_manager():
         return None
 
 
+def _prepare_messages(
+    system_prompt: str | None = None,
+    user_message: str | None = None,
+    messages: list[ChatMessage] | None = None,
+) -> list[ChatMessage]:
+    """Normalize chat messages, preserving backward compatibility."""
+    if messages:
+        prepared: list[ChatMessage] = []
+        for msg in messages:
+            role = str(msg.get("role", "user")).strip().lower()
+            content = str(msg.get("content", "")).strip()
+            if not content:
+                continue
+            if role not in {"system", "developer", "user", "assistant"}:
+                role = "user"
+            prepared.append({"role": role, "content": content})
+        if prepared:
+            return prepared
+
+    # Backward-compatible mode
+    sys_prompt = (system_prompt or "").strip()
+    usr_msg = (user_message or "").strip()
+    if not sys_prompt and not usr_msg:
+        raise LLMError("Nenhuma mensagem fornecida para chamada LLM.")
+
+    normalized: list[ChatMessage] = []
+    if sys_prompt:
+        normalized.append({"role": "system", "content": sys_prompt})
+    if usr_msg:
+        normalized.append({"role": "user", "content": usr_msg})
+    return normalized
+
+
+def _messages_to_text(messages: list[ChatMessage]) -> str:
+    """Serialize messages into deterministic text for token estimate/cache."""
+    return "\n".join(f"[{m['role']}]\n{m['content']}" for m in messages)
+
+
+def _extract_prompt_and_schema_cache_context(
+    prepared_messages: list[ChatMessage],
+    cache_context: dict[str, object],
+    response_format: dict | None,
+) -> tuple[str, str, str]:
+    """Resolve prompt/schema identifiers used for cache isolation."""
+    prompt_version = str(cache_context.get("prompt_version") or "").strip()
+    prompt_hash = str(cache_context.get("prompt_hash_sha256") or "").strip()
+
+    if not prompt_hash:
+        prompt_seed = "\n".join(
+            m.get("content", "")
+            for m in prepared_messages
+            if m.get("role") in {"system", "developer"}
+        ).strip()
+        if prompt_seed:
+            cache_manager = _get_cache_manager()
+            if cache_manager:
+                prompt_hash = cache_manager._hash_text(prompt_seed)
+
+    if response_format and isinstance(response_format, dict):
+        schema_version = str(response_format.get("type") or "json_object").strip()
+    else:
+        schema_version = str(cache_context.get("schema_version") or "raw").strip()
+
+    return prompt_version, prompt_hash, schema_version
+
+
 def _chamar_llm_raw(
-    system_prompt: str,
-    user_message: str,
+    system_prompt: str | None = None,
+    user_message: str | None = None,
     *,
+    messages: list[ChatMessage] | None = None,
     temperature: float | None = None,
     max_tokens: int | None = None,
     model: str | None = None,
@@ -160,8 +241,9 @@ def _chamar_llm_raw(
     Call the LLM with retry and token tracking.
 
     Args:
-        system_prompt: System message content.
-        user_message: User message content.
+        system_prompt: System message content (legacy mode).
+        user_message: User message content (legacy mode).
+        messages: Full list of chat messages (preferred mode).
         temperature: Override default temperature.
         max_tokens: Override default max tokens.
         model: Override default model.
@@ -186,14 +268,15 @@ def _chamar_llm_raw(
     if modelo.startswith("google/") and GOOGLE_API_KEY:
         modelo = modelo.replace("google/", "")
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_message},
-    ]
+    prepared_messages = _prepare_messages(
+        system_prompt=system_prompt,
+        user_message=user_message,
+        messages=messages,
+    )
 
     kwargs: dict = {
         "model": modelo,
-        "messages": messages,
+        "messages": prepared_messages,
         "temperature": temp,
         "max_tokens": tokens,
     }
@@ -205,21 +288,25 @@ def _chamar_llm_raw(
     for attempt in range(1, LLM_MAX_RETRIES + 1):
         try:
             logger.info(
-                "LLM chamada #%d: modelo=%s, temp=%.1f, max_tokens=%d",
-                attempt, modelo, temp, tokens,
+                "LLM chamada #%d: modelo=%s, temp=%.1f, max_tokens=%d, mensagens=%d",
+                attempt, modelo, temp, tokens, len(prepared_messages),
             )
+            t0 = time.perf_counter()
             response = client.chat.completions.create(**kwargs)
+            latency_ms = (time.perf_counter() - t0) * 1000
 
             # Extract usage
+            choice = response.choices[0]
+            finish_reason = choice.finish_reason or "unknown"
             usage = TokenUsage(
                 prompt_tokens=response.usage.prompt_tokens if response.usage else 0,
                 completion_tokens=response.usage.completion_tokens if response.usage else 0,
                 total_tokens=response.usage.total_tokens if response.usage else 0,
+                finish_reason=finish_reason,
+                latency_ms=round(latency_ms, 2),
             )
             token_tracker.registrar(usage)
 
-            choice = response.choices[0]
-            finish_reason = choice.finish_reason or "unknown"
             content = choice.message.content or ""
 
             logger.info(
@@ -230,11 +317,22 @@ def _chamar_llm_raw(
 
             # Warn on truncated response
             if finish_reason != "stop":
-                logger.warning(
-                    "⚠️  Resposta truncada (finish_reason=%s). "
-                    "Considere aumentar max_tokens (atual: %d).",
-                    finish_reason, tokens,
+                msg = (
+                    "Resposta truncada "
+                    f"(finish_reason={finish_reason}, max_tokens={tokens})"
                 )
+                logger.warning("⚠️  %s", msg)
+                if attempt < LLM_MAX_RETRIES:
+                    # Increase completion budget progressively and retry.
+                    tokens = min(tokens + max(256, tokens // 2), 8192)
+                    kwargs["max_tokens"] = tokens
+                    logger.warning(
+                        "🔁 Repetindo chamada após truncamento com max_tokens=%d "
+                        "(tentativa %d/%d).",
+                        tokens, attempt + 1, LLM_MAX_RETRIES,
+                    )
+                    continue
+                raise LLMTruncatedResponseError(msg)
 
             return LLMResponse(
                 content=content,
@@ -266,14 +364,19 @@ def _chamar_llm_raw(
             logger.error("Erro inesperado na chamada LLM: %s", e)
             break
 
+    if isinstance(last_error, LLMTruncatedResponseError):
+        raise last_error
+
     raise LLMError(
         f"Falha na chamada LLM após {LLM_MAX_RETRIES} tentativas: {last_error}"
     )
 
 
 def chamar_llm_with_rate_limit(
-    system_prompt: str,
-    user_message: str,
+    system_prompt: str | None = None,
+    user_message: str | None = None,
+    *,
+    messages: list[ChatMessage] | None = None,
     **kwargs,
 ) -> LLMResponse:
     """
@@ -285,8 +388,9 @@ def chamar_llm_with_rate_limit(
     - Cache support (when enabled)
 
     Args:
-        system_prompt: System message content.
-        user_message: User message content.
+        system_prompt: System message content (legacy mode).
+        user_message: User message content (legacy mode).
+        messages: Full list of chat messages (preferred mode).
         **kwargs: Additional arguments passed to _chamar_llm_raw.
 
     Returns:
@@ -298,10 +402,20 @@ def chamar_llm_with_rate_limit(
     """
     modelo = kwargs.get("model") or OPENAI_MODEL
     token_manager = _get_token_manager()
+    prepared_messages = _prepare_messages(
+        system_prompt=system_prompt,
+        user_message=user_message,
+        messages=messages,
+    )
+    prompt_blob = _messages_to_text(prepared_messages)
 
     # Estimate tokens before calling API
-    estimated_prompt = token_manager.estimate_tokens(system_prompt + user_message, modelo)
+    estimated_prompt = token_manager.estimate_tokens(prompt_blob, modelo)
     estimated_total = estimated_prompt + (kwargs.get("max_tokens") or MAX_TOKENS)
+    logger.info(
+        "Token estimate antes da chamada: modelo=%s, prompt=%d, total_previsto=%d",
+        modelo, estimated_prompt, estimated_total,
+    )
 
     # Check rate limit if enabled
     if ENABLE_RATE_LIMITING:
@@ -316,12 +430,38 @@ def chamar_llm_with_rate_limit(
             time.sleep(wait_time)
 
     # Check cache if enabled
+    cache_context = kwargs.pop("cache_context", {}) or {}
+    if not isinstance(cache_context, dict):
+        cache_context = {"value": str(cache_context)}
+
+    response_format = kwargs.get("response_format")
     use_cache = kwargs.pop("use_cache", True) and ENABLE_CACHING
+    cache_identity: tuple[str, str] | None = None
     if use_cache:
         cache_manager = _get_cache_manager()
         if cache_manager:
-            cache_key = cache_manager._hash_text(system_prompt + user_message)
-            cached = cache_manager.get(cache_key, category="llm_calls")
+            prompt_version, prompt_hash, schema_version = _extract_prompt_and_schema_cache_context(
+                prepared_messages,
+                cache_context,
+                response_format,
+            )
+
+            category, cache_key = cache_manager.build_multilevel_cache_identity(
+                model=modelo,
+                input_payload=prepared_messages,
+                prompt_version=prompt_version,
+                prompt_hash=prompt_hash,
+                schema_version=schema_version,
+                temperature=kwargs.get("temperature"),
+                max_tokens=kwargs.get("max_tokens") or MAX_TOKENS,
+                provider=LLM_PROVIDER,
+                extra={
+                    "response_format": response_format,
+                    "cache_context": cache_context,
+                },
+            )
+            cache_identity = (category, cache_key)
+            cached = cache_manager.get(cache_key, category=category)
 
             if cached:
                 logger.info("💾 Cache hit — pulando chamada LLM para economizar tokens e custo")
@@ -331,7 +471,12 @@ def chamar_llm_with_rate_limit(
                 return LLMResponse(**cached)
 
     # Call raw LLM function
-    response = _chamar_llm_raw(system_prompt, user_message, **kwargs)
+    response = _chamar_llm_raw(
+        messages=prepared_messages,
+        system_prompt=system_prompt,
+        user_message=user_message,
+        **kwargs,
+    )
 
     # Register usage for rate limiting
     if ENABLE_RATE_LIMITING:
@@ -342,8 +487,19 @@ def chamar_llm_with_rate_limit(
     if use_cache:
         cache_manager = _get_cache_manager()
         if cache_manager:
+            category, cache_key = cache_identity or cache_manager.build_multilevel_cache_identity(
+                model=modelo,
+                input_payload=prepared_messages,
+                prompt_version="",
+                prompt_hash="",
+                schema_version="raw",
+                temperature=kwargs.get("temperature"),
+                max_tokens=kwargs.get("max_tokens") or MAX_TOKENS,
+                provider=LLM_PROVIDER,
+                extra={"response_format": response_format, "cache_context": cache_context},
+            )
             cache_manager.set(
-                cache_manager._hash_text(system_prompt + user_message),
+                cache_key,
                 response.model_dump() if hasattr(response, "model_dump") else {
                     "content": response.content,
                     "tokens": {
@@ -354,7 +510,7 @@ def chamar_llm_with_rate_limit(
                     "model": response.model,
                     "finish_reason": response.finish_reason,
                 },
-                category="llm_calls",
+                category=category,
             )
 
     return response
@@ -365,8 +521,10 @@ chamar_llm = chamar_llm_with_rate_limit
 
 
 def chamar_llm_json(
-    system_prompt: str,
-    user_message: str,
+    system_prompt: str | None = None,
+    user_message: str | None = None,
+    *,
+    messages: list[ChatMessage] | None = None,
     **kwargs,
 ) -> dict:
     """
@@ -379,8 +537,9 @@ def chamar_llm_json(
         LLMError: If response is not valid JSON.
     """
     response = chamar_llm_with_rate_limit(
-        system_prompt,
-        user_message,
+        system_prompt=system_prompt,
+        user_message=user_message,
+        messages=messages,
         response_format={"type": "json_object"},
         **kwargs,
     )
@@ -393,8 +552,10 @@ def chamar_llm_json(
 
 # Legacy interface (for backward compatibility, bypasses enhancements)
 def chamar_llm_legacy(
-    system_prompt: str,
-    user_message: str,
+    system_prompt: str | None = None,
+    user_message: str | None = None,
+    *,
+    messages: list[ChatMessage] | None = None,
     **kwargs,
 ) -> LLMResponse:
     """
@@ -403,4 +564,9 @@ def chamar_llm_legacy(
     Only use this if you need to bypass the robust architecture features.
     Most code should use chamar_llm() instead.
     """
-    return _chamar_llm_raw(system_prompt, user_message, **kwargs)
+    return _chamar_llm_raw(
+        system_prompt=system_prompt,
+        user_message=user_message,
+        messages=messages,
+        **kwargs,
+    )

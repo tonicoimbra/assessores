@@ -1,0 +1,123 @@
+{
+  "dataset_version": "1.0.0",
+  "case_id": "golden_case_001_inadmitido_sumula7",
+  "description": "Caso canônico com inadmissão por óbice sumular (Súmula 7/STJ).",
+  "inputs": {
+    "pdfs": [
+      {
+        "filename": "recurso_case_001.pdf",
+        "tipo": "RECURSO",
+        "texto": "PROJUDI - Recurso: 0001234-56.2024.8.16.0001. Recorrente: BANCO EXEMPLO S/A. Recurso Especial com fundamento no art. 105, III, a, da CF."
+      },
+      {
+        "filename": "acordao_case_001.pdf",
+        "tipo": "ACORDAO",
+        "texto": "ACÓRDÃO. A revisão da conclusão do acórdão exige reexame de provas. Incidência da Súmula 7/STJ."
+      }
+    ]
+  },
+  "mock_pipeline_results": {
+    "etapa1": {
+      "numero_processo": "0001234-56.2024.8.16.0001",
+      "recorrente": "BANCO EXEMPLO S/A",
+      "recorrido": "JOAO DA SILVA",
+      "especie_recurso": "RECURSO ESPECIAL",
+      "permissivo_constitucional": "art. 105, III, a, da CF",
+      "camara_civel": "10ª Câmara Cível",
+      "dispositivos_violados": [
+        "art. 489 do CPC",
+        "art. 927 do CC"
+      ],
+      "justica_gratuita": false,
+      "efeito_suspensivo": false,
+      "evidencias_campos": {
+        "numero_processo": {
+          "citacao_literal": "PROJUDI - Recurso: 0001234-56.2024.8.16.0001",
+          "pagina": 1,
+          "ancora": "PROJUDI - Recurso",
+          "offset_inicio": 0
+        },
+        "recorrente": {
+          "citacao_literal": "Recorrente: BANCO EXEMPLO S/A",
+          "pagina": 1,
+          "ancora": "Recorrente",
+          "offset_inicio": 40
+        },
+        "especie_recurso": {
+          "citacao_literal": "Recurso Especial",
+          "pagina": 1,
+          "ancora": "Recurso Especial",
+          "offset_inicio": 70
+        }
+      },
+      "verificacao_campos": {
+        "numero_processo": true,
+        "recorrente": true,
+        "especie_recurso": true
+      },
+      "inconclusivo": false,
+      "motivo_inconclusivo": "",
+      "texto_formatado": "Bloco Técnico da Etapa 1."
+    },
+    "etapa2": {
+      "temas": [
+        {
+          "materia_controvertida": "Reexame de provas sobre dano moral.",
+          "conclusao_fundamentos": "O acórdão concluiu que a revisão exige reexame do conjunto fático-probatório.",
+          "base_vinculante": "Jurisprudência consolidada do STJ.",
+          "obices_sumulas": [
+            "Súmula 7/STJ"
+          ],
+          "trecho_transcricao": "A pretensão recursal demanda reexame de provas, providência vedada em Recurso Especial.",
+          "evidencias_campos": {
+            "materia_controvertida": {
+              "citacao_literal": "reexame de provas",
+              "pagina": 2,
+              "ancora": "reexame de provas",
+              "offset_inicio": 10
+            },
+            "conclusao_fundamentos": {
+              "citacao_literal": "revisão exige reexame do conjunto fático-probatório",
+              "pagina": 2,
+              "ancora": "conclusão",
+              "offset_inicio": 30
+            },
+            "obices_sumulas": {
+              "citacao_literal": "Incidência da Súmula 7/STJ",
+              "pagina": 2,
+              "ancora": "Súmula 7/STJ",
+              "offset_inicio": 50
+            },
+            "trecho_transcricao": {
+              "citacao_literal": "A pretensão recursal demanda reexame de provas",
+              "pagina": 2,
+              "ancora": "pretensão recursal",
+              "offset_inicio": 70
+            }
+          }
+        }
+      ],
+      "texto_formatado": "Tema 1 estruturado."
+    },
+    "etapa3": {
+      "minuta_completa": "Seção I - Relatório.\nSeção II - Fundamentação.\nSeção III - Decisão.\nINADMITO o recurso especial.",
+      "decisao": "INADMITIDO",
+      "fundamentos_decisao": [
+        "Incidência da Súmula 7/STJ por reexame de provas."
+      ],
+      "itens_evidencia_usados": [
+        "Tema 1/obices_sumulas: Súmula 7/STJ (p.2)"
+      ],
+      "aviso_inconclusivo": false,
+      "motivo_bloqueio_codigo": "",
+      "motivo_bloqueio_descricao": ""
+    }
+  },
+  "expected": {
+    "decisao": "INADMITIDO",
+    "temas_count": 1,
+    "obice_contains": "Súmula 7",
+    "confianca_global_min": 0.9,
+    "motivo_bloqueio_codigo": ""
+  }
+}

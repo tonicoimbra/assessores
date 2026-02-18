@@ -126,6 +126,35 @@ class TestChunkingIntegration:
         # Should have 3 unique themes (deduplicating "Responsabilidade civil")
         assert len(merged.temas) == 3
 
+    def test_merge_etapa2_results_semantic_dedup(self):
+        """Test semantic deduplication for paraphrased duplicated themes."""
+        from src.etapa2 import _merge_etapa2_results
+        from src.models import TemaEtapa2
+
+        r1 = ResultadoEtapa2(
+            temas=[
+                TemaEtapa2(
+                    materia_controvertida="Responsabilidade civil por inadimplemento contratual",
+                    conclusao_fundamentos="Improcedência mantida por inexistência de dano moral.",
+                    obices_sumulas=["Súmula 7"],
+                    trecho_transcricao="Não há prova de dano moral indenizável.",
+                )
+            ]
+        )
+        r2 = ResultadoEtapa2(
+            temas=[
+                TemaEtapa2(
+                    materia_controvertida="Responsabilidade civil decorrente do inadimplemento do contrato",
+                    conclusao_fundamentos="Mantida a improcedência pela ausência de abalo moral.",
+                    obices_sumulas=["Súmula 7/STJ"],
+                    trecho_transcricao="Ausente comprovação de abalo moral no caso.",
+                )
+            ]
+        )
+
+        merged = _merge_etapa2_results([r1, r2])
+        assert len(merged.temas) == 1
+
 
 class TestRateLimitingIntegration:
     """Test rate limiting in pipeline context."""

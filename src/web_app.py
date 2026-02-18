@@ -11,7 +11,7 @@ from flask import Flask, render_template, request, send_file
 from werkzeug.utils import secure_filename
 
 from src.config import LLM_PROVIDER, OPENAI_API_KEY, OPENROUTER_API_KEY, OUTPUTS_DIR
-from src.pipeline import PipelineAdmissibilidade
+from src.pipeline import PipelineAdmissibilidade, handle_pipeline_error
 
 app = Flask(
     __name__,
@@ -138,6 +138,20 @@ def processar():
             default_model=modelo,
         )
     except Exception as exc:
+        pipeline_obj = locals().get("pipeline")
+        handle_pipeline_error(
+            exc,
+            estado=getattr(pipeline_obj, "estado_atual", None),
+            processo_id=f"web_{req_id}",
+            metricas=getattr(pipeline_obj, "metricas", {}),
+            contexto={
+                "origem": "web",
+                "modelo": modelo,
+                "formato_saida": formato,
+                "upload_dir": str(upload_dir),
+                "total_arquivos": 1 + len(acordao_paths),
+            },
+        )
         return render_template(
             "web/index.html",
             result=None,

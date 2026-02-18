@@ -4,6 +4,8 @@ import pytest
 from pydantic import ValidationError
 
 from src.models import (
+    CampoEvidencia,
+    ClassificationAudit,
     Decisao,
     DocumentoEntrada,
     EstadoPipeline,
@@ -25,6 +27,7 @@ class TestDocumentoEntrada:
         assert doc.tipo == TipoDocumento.DESCONHECIDO
         assert doc.texto_extraido == ""
         assert doc.num_paginas == 0
+        assert doc.classification_audit is None
 
     def test_creates_with_all_fields(self) -> None:
         doc = DocumentoEntrada(
@@ -33,9 +36,18 @@ class TestDocumentoEntrada:
             tipo=TipoDocumento.RECURSO,
             num_paginas=5,
             num_caracteres=1000,
+            classification_audit=ClassificationAudit(
+                method="heuristica",
+                confidence=0.9,
+                heuristic_score_recurso=0.9,
+            ),
         )
         assert doc.tipo == TipoDocumento.RECURSO
         assert doc.num_paginas == 5
+        assert doc.classification_audit is not None
+        assert doc.classification_audit.method == "heuristica"
+        assert doc.classification_audit.verifier_ok is True
+        assert doc.classification_audit.verifier_tipo == ""
 
     def test_rejects_missing_filepath(self) -> None:
         with pytest.raises(ValidationError):
@@ -50,6 +62,10 @@ class TestResultadoEtapa1:
         assert r.numero_processo == ""
         assert r.dispositivos_violados == []
         assert r.justica_gratuita is False
+        assert r.evidencias_campos == {}
+        assert r.verificacao_campos == {}
+        assert r.inconclusivo is False
+        assert r.motivo_inconclusivo == ""
 
     def test_creates_with_data(self) -> None:
         r = ResultadoEtapa1(
@@ -59,10 +75,24 @@ class TestResultadoEtapa1:
             especie_recurso="Recurso Especial",
             dispositivos_violados=["art. 5, CF", "art. 927, CC"],
             justica_gratuita=True,
+            evidencias_campos={
+                "numero_processo": CampoEvidencia(
+                    citacao_literal="Processo nº 1234567-89.2024.8.16.0001",
+                    pagina=1,
+                    ancora="Processo nº 1234567-89.2024.8.16.0001",
+                )
+            },
+            verificacao_campos={"numero_processo": True},
+            inconclusivo=True,
+            motivo_inconclusivo="Campo obrigatório ausente: especie_recurso",
         )
         assert r.numero_processo == "1234567-89.2024.8.16.0001"
         assert len(r.dispositivos_violados) == 2
         assert r.justica_gratuita is True
+        assert "numero_processo" in r.evidencias_campos
+        assert r.verificacao_campos["numero_processo"] is True
+        assert r.inconclusivo is True
+        assert "especie_recurso" in r.motivo_inconclusivo
 
 
 class TestTemaEtapa2:
@@ -72,15 +102,24 @@ class TestTemaEtapa2:
         t = TemaEtapa2()
         assert t.materia_controvertida == ""
         assert t.obices_sumulas == []
+        assert t.evidencias_campos == {}
 
     def test_creates_with_data(self) -> None:
         t = TemaEtapa2(
             materia_controvertida="Danos morais",
             conclusao_fundamentos="Manteve a condenação",
             obices_sumulas=["Súmula 7/STJ"],
+            evidencias_campos={
+                "materia_controvertida": CampoEvidencia(
+                    citacao_literal="Tema sobre danos morais",
+                    pagina=1,
+                    ancora="Tema 1",
+                )
+            },
         )
         assert t.materia_controvertida == "Danos morais"
         assert len(t.obices_sumulas) == 1
+        assert "materia_controvertida" in t.evidencias_campos
 
 
 class TestResultadoEtapa2:
@@ -104,6 +143,11 @@ class TestResultadoEtapa3:
         r = ResultadoEtapa3()
         assert r.minuta_completa == ""
         assert r.decisao is None
+        assert r.fundamentos_decisao == []
+        assert r.itens_evidencia_usados == []
+        assert r.aviso_inconclusivo is False
+        assert r.motivo_bloqueio_codigo == ""
+        assert r.motivo_bloqueio_descricao == ""
 
     def test_admitido_decision(self) -> None:
         r = ResultadoEtapa3(decisao=Decisao.ADMITIDO)
@@ -112,6 +156,10 @@ class TestResultadoEtapa3:
     def test_inadmitido_decision(self) -> None:
         r = ResultadoEtapa3(decisao=Decisao.INADMITIDO)
         assert r.decisao == Decisao.INADMITIDO
+
+    def test_inconclusivo_decision(self) -> None:
+        r = ResultadoEtapa3(decisao=Decisao.INCONCLUSIVO)
+        assert r.decisao == Decisao.INCONCLUSIVO
 
 
 class TestEstadoPipeline:
@@ -124,6 +172,19 @@ class TestEstadoPipeline:
         assert estado.resultado_etapa2 is None
         assert estado.resultado_etapa3 is None
         assert isinstance(estado.metadata, MetadadosPipeline)
+        assert estado.metadata.confianca_por_etapa == {}
+        assert estado.metadata.confianca_campos_etapa1 == {}
+        assert estado.metadata.confianca_temas_etapa2 == {}
+        assert estado.metadata.confianca_global == 0.0
+        assert estado.metadata.politica_escalonamento == {}
+        assert estado.metadata.chunking_auditoria == {}
+        assert estado.metadata.prompt_profile == ""
+        assert estado.metadata.prompt_version == ""
+        assert estado.metadata.prompt_hash_sha256 == ""
+        assert estado.metadata.llm_stats == {}
+        assert estado.metadata.execucao_id == ""
+        assert estado.metadata.motivo_bloqueio_codigo == ""
+        assert estado.metadata.motivo_bloqueio_descricao == ""
 
     def test_full_pipeline_state(self) -> None:
         estado = EstadoPipeline(
@@ -148,6 +209,7 @@ class TestEnums:
     def test_decisao_values(self) -> None:
         assert Decisao.ADMITIDO.value == "ADMITIDO"
         assert Decisao.INADMITIDO.value == "INADMITIDO"
+        assert Decisao.INCONCLUSIVO.value == "INCONCLUSIVO"
 
 
 class TestSerialization:

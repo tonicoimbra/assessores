@@ -9,7 +9,9 @@ import pytest
 
 from src.etapa3 import (
     Etapa3Error,
+    _decidir_admissibilidade_deterministica,
     _extrair_decisao,
+    _resultado_etapa3_from_json,
     _validar_cruzada_dispositivos,
     _validar_cruzada_temas,
     _validar_secao_i,
@@ -18,8 +20,11 @@ from src.etapa3 import (
     _validar_secoes,
     _validar_sumulas_secao_iii,
     _validar_transcricoes,
+    executar_etapa3,
 )
 from src.models import (
+    DocumentoEntrada,
+    CampoEvidencia,
     Decisao,
     EstadoPipeline,
     MetadadosPipeline,
@@ -27,11 +32,14 @@ from src.models import (
     ResultadoEtapa2,
     ResultadoEtapa3,
     TemaEtapa2,
+    TipoDocumento,
 )
 from src.output_formatter import (
     formatar_minuta,
     gerar_relatorio_auditoria,
+    salvar_snapshot_execucao_json,
     salvar_minuta,
+    salvar_trilha_auditoria_json,
     salvar_minuta_docx,
 )
 
@@ -182,13 +190,100 @@ class TestFormatacaoMarkdown:
                 resultado_etapa1=ResultadoEtapa1(numero_processo="123"),
                 resultado_etapa2=ResultadoEtapa2(temas=[TemaEtapa2()]),
                 resultado_etapa3=ResultadoEtapa3(decisao=Decisao.INADMITIDO),
-                metadata=MetadadosPipeline(total_tokens=5000, modelo_usado="gpt-4o"),
+                metadata=MetadadosPipeline(
+                    total_tokens=5000,
+                    modelo_usado="gpt-4o",
+                    execucao_id="exec-123",
+                    prompt_profile="modular-lean",
+                    prompt_version="unversioned",
+                    prompt_hash_sha256="a" * 64,
+                    llm_stats={"total_calls": 3, "calls_truncadas": 1, "latencia_media_ms": 120.5},
+                ),
             )
             path = gerar_relatorio_auditoria(estado, ["teste"], "123")
             content = path.read_text(encoding="utf-8")
             assert "5000" in content
             assert "teste" in content
             assert "gpt-4o" in content
+            assert "exec-123" in content
+            assert "Chamadas truncadas: 1" in content
+            assert "Assinatura de Prompt" in content
+            assert "modular-lean" in content
+
+    def test_audit_json_report(self, tmp_path: Path) -> None:
+        with patch("src.output_formatter.OUTPUTS_DIR", tmp_path):
+            estado = EstadoPipeline(
+                resultado_etapa1=ResultadoEtapa1(numero_processo="123"),
+                resultado_etapa2=ResultadoEtapa2(temas=[TemaEtapa2()]),
+                resultado_etapa3=ResultadoEtapa3(
+                    decisao=Decisao.INCONCLUSIVO,
+                    fundamentos_decisao=["Dados insuficientes"],
+                    itens_evidencia_usados=["Tema 1 sem evidência suficiente"],
+                    aviso_inconclusivo=True,
+                    motivo_bloqueio_codigo="E3_INCONCLUSIVO",
+                    motivo_bloqueio_descricao="Dados insuficientes para decisão conclusiva.",
+                ),
+                metadata=MetadadosPipeline(
+                    total_tokens=5000,
+                    modelo_usado="gpt-4o",
+                    execucao_id="exec-123",
+                    prompt_profile="modular-lean",
+                    prompt_version="unversioned",
+                    prompt_hash_sha256="b" * 64,
+                    llm_stats={"total_calls": 3, "calls_truncadas": 1, "latencia_media_ms": 120.5},
+                    confianca_por_etapa={"etapa1": 0.91, "etapa2": 0.77, "etapa3": 0.49},
+                    confianca_global=0.72,
+                    motivo_bloqueio_codigo="E3_INCONCLUSIVO",
+                    motivo_bloqueio_descricao="Dados insuficientes para decisão conclusiva.",
+                ),
+            )
+            path = salvar_trilha_auditoria_json(estado, ["teste"], "123")
+            payload = path.read_text(encoding="utf-8")
+            assert path.suffix == ".json"
+            assert "\"processo\": \"123\"" in payload
+            assert "\"execucao_id\": \"exec-123\"" in payload
+            assert "\"decisao\": \"INCONCLUSIVO\"" in payload
+            assert "\"alertas_validacao\"" in payload
+            assert "\"confianca\"" in payload
+            assert "\"global\": 0.72" in payload
+            assert "\"escalonamento\"" in payload
+            assert "\"chunking_auditoria\"" in payload
+            assert "\"llm_stats\"" in payload
+            assert "\"prompt\"" in payload
+            assert "\"profile\": \"modular-lean\"" in payload
+            assert "\"motivo_bloqueio\"" in payload
+            assert "\"codigo\": \"E3_INCONCLUSIVO\"" in payload
+
+    def test_execution_snapshot_json(self, tmp_path: Path) -> None:
+        with patch("src.output_formatter.OUTPUTS_DIR", tmp_path):
+            estado = EstadoPipeline(
+                documentos_entrada=[
+                    DocumentoEntrada(
+                        filepath="recurso.pdf",
+                        tipo=TipoDocumento.RECURSO,
+                        num_paginas=3,
+                        num_caracteres=1200,
+                        texto_extraido="Recurso especial com fundamentos e pedidos.",
+                    ),
+                ],
+                resultado_etapa1=ResultadoEtapa1(numero_processo="123", recorrente="EMPRESA X"),
+                resultado_etapa2=ResultadoEtapa2(temas=[TemaEtapa2(materia_controvertida="Tema A")]),
+                resultado_etapa3=ResultadoEtapa3(decisao=Decisao.ADMITIDO),
+                metadata=MetadadosPipeline(total_tokens=5000, modelo_usado="gpt-4o"),
+            )
+            path = salvar_snapshot_execucao_json(
+                estado,
+                validacoes={"etapa1": [], "etapa2": [], "etapa3": []},
+                arquivos_saida={"minuta": "/tmp/minuta.md"},
+                numero_processo="123",
+            )
+            payload = path.read_text(encoding="utf-8")
+            assert path.suffix == ".json"
+            assert "\"snapshot_schema_version\": \"1.0.0\"" in payload
+            assert "\"processo_id\": \"123\"" in payload
+            assert "\"texto_extraido_hash\"" in payload
+            assert "\"validacao_erros\"" in payload
+            assert "\"metadata\"" in payload
 
     @pytest.mark.skipif(not HAS_PYTHON_DOCX, reason="python-docx não instalado")
     def test_save_minuta_docx_creates_file(self, tmp_path: Path) -> None:
@@ -246,3 +341,322 @@ class TestPipelineIntegration:
 
         assert isinstance(r3, ResultadoEtapa3)
         assert len(r3.minuta_completa) > 0
+
+
+class TestEtapa3StructuredJson:
+    """Test structured JSON conversion and fallback behavior in Stage 3."""
+
+    def test_resultado_from_json_payload(self) -> None:
+        payload = {
+            "minuta_completa": MINUTA_COMPLETA,
+            "decisao": "INADMITIDO",
+            "fundamentos_decisao": ["Óbice sumular"],
+            "itens_evidencia_usados": ["Tema 1/obices_sumulas: Súmula 7 (p.1)"],
+        }
+        resultado = _resultado_etapa3_from_json(payload)
+        assert resultado.decisao == Decisao.INADMITIDO
+        assert "Seção III" in resultado.minuta_completa
+        assert resultado.fundamentos_decisao == ["Óbice sumular"]
+        assert len(resultado.itens_evidencia_usados) == 1
+
+    def test_resultado_from_json_payload_inconclusivo(self) -> None:
+        payload = {
+            "minuta_completa": "AVISO: Decisão jurídica inconclusiva: Requer análise adicional.",
+            "decisao": "INCONCLUSIVO",
+            "fundamentos_decisao": ["Dados insuficientes."],
+            "itens_evidencia_usados": ["Etapa 1/numero_processo: Processo nº 123 (p.1)"],
+        }
+        resultado = _resultado_etapa3_from_json(payload)
+        assert resultado.decisao == Decisao.INCONCLUSIVO
+        assert resultado.aviso_inconclusivo is True
+        assert resultado.motivo_bloqueio_codigo == "E3_INCONCLUSIVO"
+        assert resultado.motivo_bloqueio_descricao
+
+    def test_executar_etapa3_structured_success(self, monkeypatch) -> None:
+        payload = {
+            "minuta_completa": MINUTA_COMPLETA,
+            "decisao": "INADMITIDO",
+            "fundamentos_decisao": ["Óbice sumular"],
+            "itens_evidencia_usados": ["Tema 1/obices_sumulas: Súmula 7 (p.1)"],
+        }
+        monkeypatch.setattr("src.etapa3.chamar_llm_json", lambda **kwargs: payload)
+
+        def _should_not_call_llm(**kwargs):
+            raise AssertionError("legacy fallback should not be called")
+
+        monkeypatch.setattr("src.etapa3.chamar_llm", _should_not_call_llm)
+
+        r1 = ResultadoEtapa1(
+            numero_processo="123",
+            recorrente="EMPRESA ABC LTDA",
+            evidencias_campos={
+                "numero_processo": CampoEvidencia(
+                    citacao_literal="Processo nº 123",
+                    pagina=1,
+                    ancora="Processo nº 123",
+                )
+            },
+        )
+        r2 = ResultadoEtapa2(
+            temas=[
+                TemaEtapa2(
+                    materia_controvertida="Responsabilidade civil",
+                    conclusao_fundamentos="Sem dano moral",
+                    obices_sumulas=["Súmula 7"],
+                    trecho_transcricao="Não restou demonstrada a ocorrência do dano alegado.",
+                    evidencias_campos={
+                        "obices_sumulas": CampoEvidencia(
+                            citacao_literal="Incide a Súmula 7",
+                            pagina=1,
+                            ancora="Súmula 7",
+                        )
+                    },
+                )
+            ]
+        )
+        resultado = executar_etapa3(
+            resultado_etapa1=r1,
+            resultado_etapa2=r2,
+            texto_acordao="Não restou demonstrada a ocorrência do dano alegado pelo recorrente.",
+            prompt_sistema="prompt",
+            modelo_override="gpt-4o",
+        )
+        assert resultado.decisao == Decisao.INADMITIDO
+        assert resultado.fundamentos_decisao
+        assert resultado.itens_evidencia_usados
+
+    def test_executar_etapa3_structured_failure_fallback(self, monkeypatch) -> None:
+        calls = {"json": 0}
+
+        def _fail_json(**kwargs):
+            calls["json"] += 1
+            raise RuntimeError("json inválido")
+
+        monkeypatch.setattr("src.etapa3.chamar_llm_json", _fail_json)
+
+        class _FakeResponse:
+            content = MINUTA_COMPLETA
+            tokens = type("T", (), {"total_tokens": 200, "prompt_tokens": 120, "completion_tokens": 80})()
+
+        monkeypatch.setattr("src.etapa3.chamar_llm", lambda **kwargs: _FakeResponse())
+
+        r1 = ResultadoEtapa1(numero_processo="123", recorrente="EMPRESA ABC LTDA")
+        r2 = ResultadoEtapa2(temas=[TemaEtapa2(materia_controvertida="Responsabilidade civil", conclusao_fundamentos="Sem dano moral")])
+        resultado = executar_etapa3(
+            resultado_etapa1=r1,
+            resultado_etapa2=r2,
+            texto_acordao="Não restou demonstrada a ocorrência do dano alegado pelo recorrente.",
+            prompt_sistema="prompt",
+            modelo_override="gpt-4o",
+        )
+        assert calls["json"] == 2
+        assert resultado.decisao == Decisao.INADMITIDO
+
+    def test_executar_etapa3_decisao_deterministica_sobrepoe_minuta(self, monkeypatch) -> None:
+        payload = {"minuta_completa": MINUTA_COMPLETA, "decisao": "INADMITIDO"}
+        monkeypatch.setattr("src.etapa3.chamar_llm_json", lambda **kwargs: payload)
+
+        def _should_not_call_llm(**kwargs):
+            raise AssertionError("legacy fallback should not be called")
+
+        monkeypatch.setattr("src.etapa3.chamar_llm", _should_not_call_llm)
+
+        r1 = ResultadoEtapa1(
+            numero_processo="123",
+            recorrente="EMPRESA ABC LTDA",
+            permissivo_constitucional="art. 105, III, a, CF",
+            dispositivos_violados=["art. 927 do CC"],
+        )
+        r2 = ResultadoEtapa2(
+            temas=[
+                TemaEtapa2(
+                    materia_controvertida="Responsabilidade civil",
+                    conclusao_fundamentos="Sem óbice identificado para conhecimento do recurso.",
+                    obices_sumulas=[],
+                )
+            ]
+        )
+        resultado = executar_etapa3(
+            resultado_etapa1=r1,
+            resultado_etapa2=r2,
+            texto_acordao="Não restou demonstrada a ocorrência do dano alegado pelo recorrente.",
+            prompt_sistema="prompt",
+            modelo_override="gpt-4o",
+        )
+        assert resultado.decisao == Decisao.ADMITIDO
+
+    def test_executar_etapa3_inconclusivo_forca_aviso(self, monkeypatch) -> None:
+        payload = {
+            "minuta_completa": "Seção I – Relatório\nSeção II – Análise\nSeção III – Decisão",
+            "decisao": "INCONCLUSIVO",
+            "fundamentos_decisao": ["Dados conflitantes."],
+            "itens_evidencia_usados": [],
+        }
+        monkeypatch.setattr("src.etapa3.chamar_llm_json", lambda **kwargs: payload)
+
+        def _should_not_call_llm(**kwargs):
+            raise AssertionError("legacy fallback should not be called")
+
+        monkeypatch.setattr("src.etapa3.chamar_llm", _should_not_call_llm)
+        monkeypatch.setattr(
+            "src.etapa3._decidir_admissibilidade_deterministica",
+            lambda r1, r2: (Decisao.INCONCLUSIVO, ["Dados insuficientes para conclusão segura."]),
+        )
+
+        r1 = ResultadoEtapa1(numero_processo="123", recorrente="EMPRESA ABC LTDA")
+        r2 = ResultadoEtapa2(
+            temas=[TemaEtapa2(materia_controvertida="Tema X", conclusao_fundamentos="")],
+        )
+        resultado = executar_etapa3(
+            resultado_etapa1=r1,
+            resultado_etapa2=r2,
+            texto_acordao="Texto curto sem dados suficientes.",
+            prompt_sistema="prompt",
+            modelo_override="gpt-4o",
+        )
+        assert resultado.decisao == Decisao.INCONCLUSIVO
+        assert resultado.aviso_inconclusivo is True
+        assert "AVISO:" in resultado.minuta_completa
+        assert resultado.motivo_bloqueio_codigo == "E3_INCONCLUSIVO"
+        assert resultado.motivo_bloqueio_descricao
+
+
+class TestDecisaoDeterministicaEtapa3:
+    """Test deterministic admissibility engine used by Stage 3."""
+
+    def test_inadmite_por_sumula_forte(self) -> None:
+        r1 = ResultadoEtapa1(
+            permissivo_constitucional="art. 105, III, a, CF",
+            dispositivos_violados=["art. 927 do CC"],
+        )
+        r2 = ResultadoEtapa2(
+            temas=[TemaEtapa2(conclusao_fundamentos="Tema com óbice", obices_sumulas=["Súmula 7/STJ"])]
+        )
+        decisao, fundamentos = _decidir_admissibilidade_deterministica(r1, r2)
+        assert decisao == Decisao.INADMITIDO
+        assert any("Súmula 7" in f for f in fundamentos)
+        assert any("Regra de precedência aplicada" in f for f in fundamentos)
+
+    def test_inadmite_sem_lastro_minimo_etapa1(self) -> None:
+        r1 = ResultadoEtapa1(permissivo_constitucional="", dispositivos_violados=[])
+        r2 = ResultadoEtapa2(
+            temas=[TemaEtapa2(conclusao_fundamentos="Sem óbice detectado", obices_sumulas=[])]
+        )
+        decisao, fundamentos = _decidir_admissibilidade_deterministica(r1, r2)
+        assert decisao == Decisao.INADMITIDO
+        assert any("Etapa 1 sem permissivo constitucional" in f for f in fundamentos)
+
+    def test_admite_sem_obice_forte_com_lastro_minimo(self) -> None:
+        r1 = ResultadoEtapa1(
+            permissivo_constitucional="art. 105, III, a, CF",
+            dispositivos_violados=["art. 489 do CPC"],
+        )
+        r2 = ResultadoEtapa2(
+            temas=[TemaEtapa2(conclusao_fundamentos="Sem óbice processual detectado", obices_sumulas=[])]
+        )
+        decisao, fundamentos = _decidir_admissibilidade_deterministica(r1, r2)
+        assert decisao == Decisao.ADMITIDO
+        assert any("Sem óbice forte identificado" in f for f in fundamentos)
+
+    def test_inconclusivo_sem_conclusoes_etapa2(self) -> None:
+        r1 = ResultadoEtapa1(
+            permissivo_constitucional="art. 105, III, a, CF",
+            dispositivos_violados=["art. 489 do CPC"],
+        )
+        r2 = ResultadoEtapa2(
+            temas=[TemaEtapa2(materia_controvertida="Tema sem conclusão", conclusao_fundamentos="")],
+        )
+        decisao, fundamentos = _decidir_admissibilidade_deterministica(r1, r2)
+        assert decisao == Decisao.INCONCLUSIVO
+        assert any("sem conclusões/fundamentos" in f.lower() for f in fundamentos)
+
+    def test_precedencia_obice_forte_sobre_indicio_admissibilidade(self) -> None:
+        r1 = ResultadoEtapa1(
+            permissivo_constitucional="art. 105, III, a, CF",
+            dispositivos_violados=["art. 489 do CPC"],
+        )
+        r2 = ResultadoEtapa2(
+            temas=[
+                TemaEtapa2(
+                    conclusao_fundamentos="Recurso conhecido, porém incide óbice de reexame.",
+                    obices_sumulas=["Súmula 7/STJ"],
+                )
+            ]
+        )
+        decisao, fundamentos = _decidir_admissibilidade_deterministica(r1, r2)
+        assert decisao == Decisao.INADMITIDO
+        assert any("Regra de precedência aplicada" in f for f in fundamentos)
+        assert any("Súmula 7" in f for f in fundamentos)
+
+    def test_conflito_mesmo_nivel_gera_inconclusivo(self) -> None:
+        r1 = ResultadoEtapa1(
+            permissivo_constitucional="art. 105, III, a, CF",
+            dispositivos_violados=["art. 489 do CPC"],
+        )
+        r2 = ResultadoEtapa2(
+            temas=[
+                TemaEtapa2(
+                    conclusao_fundamentos=(
+                        "Há juízo positivo de admissibilidade, mas também não conhecimento do recurso."
+                    ),
+                    obices_sumulas=[],
+                )
+            ]
+        )
+        decisao, fundamentos = _decidir_admissibilidade_deterministica(r1, r2)
+        assert decisao == Decisao.INCONCLUSIVO
+        assert any("Conflito de evidências no mesmo nível" in f for f in fundamentos)
+
+
+class TestMutationSensitiveDecisionRules:
+    """Mutation-sensitive tests for critical deterministic decision rules."""
+
+    def _base_inputs(self) -> tuple[ResultadoEtapa1, ResultadoEtapa2]:
+        r1 = ResultadoEtapa1(
+            permissivo_constitucional="art. 105, III, a, CF",
+            dispositivos_violados=["art. 489 do CPC"],
+        )
+        r2 = ResultadoEtapa2(
+            temas=[
+                TemaEtapa2(
+                    materia_controvertida="Tema base",
+                    conclusao_fundamentos="Sem óbice processual detectado.",
+                    obices_sumulas=[],
+                    trecho_transcricao="Trecho base.",
+                )
+            ]
+        )
+        return r1, r2
+
+    def test_mutation_add_strong_obice_flips_admitido_to_inadmitido(self) -> None:
+        r1, r2 = self._base_inputs()
+        decisao_base, _ = _decidir_admissibilidade_deterministica(r1, r2)
+        assert decisao_base == Decisao.ADMITIDO
+
+        r2.temas[0].obices_sumulas = ["Súmula 7/STJ"]
+        decisao_mutada, fundamentos_mutados = _decidir_admissibilidade_deterministica(r1, r2)
+        assert decisao_mutada == Decisao.INADMITIDO
+        assert any("Súmula 7" in f for f in fundamentos_mutados)
+
+    def test_mutation_remove_minimum_support_flips_admitido_to_inadmitido(self) -> None:
+        r1, r2 = self._base_inputs()
+        decisao_base, _ = _decidir_admissibilidade_deterministica(r1, r2)
+        assert decisao_base == Decisao.ADMITIDO
+
+        r1.permissivo_constitucional = ""
+        r1.dispositivos_violados = []
+        decisao_mutada, fundamentos_mutados = _decidir_admissibilidade_deterministica(r1, r2)
+        assert decisao_mutada == Decisao.INADMITIDO
+        assert any("Etapa 1 sem permissivo constitucional" in f for f in fundamentos_mutados)
+
+    def test_mutation_insert_conflicting_markers_flips_to_inconclusivo(self) -> None:
+        r1, r2 = self._base_inputs()
+        decisao_base, _ = _decidir_admissibilidade_deterministica(r1, r2)
+        assert decisao_base == Decisao.ADMITIDO
+
+        r2.temas[0].conclusao_fundamentos = (
+            "Há juízo positivo de admissibilidade, mas também não conhecimento do recurso."
+        )
+        decisao_mutada, fundamentos_mutados = _decidir_admissibilidade_deterministica(r1, r2)
+        assert decisao_mutada == Decisao.INCONCLUSIVO
+        assert any("Conflito de evidências no mesmo nível" in f for f in fundamentos_mutados)

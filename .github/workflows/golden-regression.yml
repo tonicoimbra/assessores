@@ -1,0 +1,44 @@
+name: Golden Regression Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  golden-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run golden regression suite
+        run: |
+          pytest -q -m golden tests/test_golden_e2e.py
+
+      - name: Generate baseline report
+        run: |
+          python -m src.main baseline --entrada tests/fixtures/golden --saida outputs
+
+      - name: Evaluate quality gate
+        run: |
+          python -m src.main quality-gate --baseline-dir outputs --saida outputs
+
+      - name: Evaluate regression alerts
+        if: always()
+        run: |
+          python -m src.main alerts --baseline-dir outputs --saida outputs

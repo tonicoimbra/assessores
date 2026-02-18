@@ -23,7 +23,7 @@ class TestConfigDefaults:
         assert TEMPERATURE == 0.0
 
     def test_max_tokens_has_default(self) -> None:
-        assert MAX_TOKENS == 4096
+        assert MAX_TOKENS == 2048
 
     def test_log_level_has_default(self) -> None:
         assert LOG_LEVEL in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")

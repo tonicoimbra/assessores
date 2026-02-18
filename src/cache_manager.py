@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -58,6 +59,78 @@ class CacheManager:
         sample = text[:1000]
         return hashlib.sha256(sample.encode("utf-8")).hexdigest()[:16]
 
+    def _normalize_for_hash(self, value: Any) -> Any:
+        """Normalize values to deterministic JSON-compatible representation."""
+        if isinstance(value, dict):
+            return {
+                str(k): self._normalize_for_hash(v)
+                for k, v in sorted(value.items(), key=lambda item: str(item[0]))
+            }
+        if isinstance(value, list):
+            return [self._normalize_for_hash(v) for v in value]
+        if isinstance(value, tuple):
+            return [self._normalize_for_hash(v) for v in value]
+        if isinstance(value, set):
+            return [self._normalize_for_hash(v) for v in sorted(value, key=lambda x: str(x))]
+        if isinstance(value, Path):
+            return str(value)
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return value
+        return str(value)
+
+    def hash_payload(self, payload: Any) -> str:
+        """Hash arbitrary payload deterministically using canonical JSON."""
+        normalized = self._normalize_for_hash(payload)
+        serialized = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:32]
+
+    def _slug(self, value: str, default: str) -> str:
+        """Sanitize category segment for filesystem paths."""
+        raw = (value or "").strip().lower()
+        if not raw:
+            return default
+        slug = re.sub(r"[^a-z0-9._-]+", "_", raw).strip("._-")
+        return slug[:80] or default
+
+    def build_multilevel_cache_identity(
+        self,
+        *,
+        model: str,
+        input_payload: Any,
+        prompt_version: str = "",
+        prompt_hash: str = "",
+        schema_version: str = "",
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        provider: str = "",
+        extra: dict[str, Any] | None = None,
+    ) -> tuple[str, str]:
+        """
+        Build multi-level cache category and key for LLM calls.
+
+        Returns:
+            Tuple (category, key) where category can be nested.
+        """
+        prompt_ns = self._slug(prompt_version or prompt_hash[:12], "unversioned")
+        schema_ns = self._slug(schema_version, "raw")
+        model_ns = self._slug(model, "default_model")
+        provider_ns = self._slug(provider, "default_provider")
+        category = f"llm_calls/{provider_ns}/{model_ns}/{prompt_ns}/{schema_ns}"
+
+        payload = {
+            "provider": provider,
+            "model": model,
+            "prompt_version": prompt_version,
+            "prompt_hash": prompt_hash,
+            "schema_version": schema_version,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "input_payload": input_payload,
+            "extra": extra or {},
+        }
+        key = self.hash_payload(payload)
+        return category, key
+
     def _get_cache_path(self, key: str, category: str = "general") -> Path:
         """
         Get filesystem path for a cache key.
@@ -70,7 +143,7 @@ class CacheManager:
             Path to cache file.
         """
         category_dir = self.cache_dir / category
-        category_dir.mkdir(exist_ok=True)
+        category_dir.mkdir(parents=True, exist_ok=True)
         return category_dir / f"{key}.json"
 
     def get(self, key: str, category: str = "general") -> Any | None:
@@ -173,7 +246,7 @@ class CacheManager:
             if not category_dir.exists():
                 return 0
 
-            files = list(category_dir.glob("*.json"))
+            files = list(category_dir.rglob("*.json"))
             for f in files:
                 f.unlink()
 
@@ -182,13 +255,10 @@ class CacheManager:
 
         else:
             # Clear all categories
-            total = 0
-            for category_dir in self.cache_dir.iterdir():
-                if category_dir.is_dir():
-                    files = list(category_dir.glob("*.json"))
-                    for f in files:
-                        f.unlink()
-                    total += len(files)
+            files = list(self.cache_dir.rglob("*.json"))
+            for f in files:
+                f.unlink()
+            total = len(files)
 
             logger.info("Cache cleared: all categories, files=%d", total)
             return total
@@ -203,15 +273,11 @@ class CacheManager:
         deleted = 0
         current_time = time.time()
 
-        for category_dir in self.cache_dir.iterdir():
-            if not category_dir.is_dir():
-                continue
-
-            for cache_file in category_dir.glob("*.json"):
-                age_seconds = current_time - cache_file.stat().st_mtime
-                if age_seconds > self.ttl_seconds:
-                    cache_file.unlink()
-                    deleted += 1
+        for cache_file in self.cache_dir.rglob("*.json"):
+            age_seconds = current_time - cache_file.stat().st_mtime
+            if age_seconds > self.ttl_seconds:
+                cache_file.unlink()
+                deleted += 1
 
         if deleted > 0:
             logger.info("Cleanup: %d expired cache entries deleted", deleted)
@@ -230,18 +296,13 @@ class CacheManager:
         categories: dict[str, int] = {}
         oldest_timestamp = time.time()
 
-        for category_dir in self.cache_dir.iterdir():
-            if not category_dir.is_dir():
-                continue
-
-            category_name = category_dir.name
-            files = list(category_dir.glob("*.json"))
-            categories[category_name] = len(files)
-            total_files += len(files)
-
-            for f in files:
-                total_size += f.stat().st_size
-                oldest_timestamp = min(oldest_timestamp, f.stat().st_mtime)
+        files = list(self.cache_dir.rglob("*.json"))
+        total_files = len(files)
+        for f in files:
+            total_size += f.stat().st_size
+            oldest_timestamp = min(oldest_timestamp, f.stat().st_mtime)
+            category_name = str(f.parent.relative_to(self.cache_dir))
+            categories[category_name] = categories.get(category_name, 0) + 1
 
         oldest_age_hours = (time.time() - oldest_timestamp) / 3600 if total_files > 0 else 0
 

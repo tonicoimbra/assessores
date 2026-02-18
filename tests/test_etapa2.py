@@ -11,9 +11,12 @@ from src.etapa2 import (
     SUMULAS_STF,
     SUMULAS_VALIDAS,
     _parse_resposta_etapa2,
+    _resultado_etapa2_from_json,
     _separar_blocos_tema,
+    _validar_evidencias_temas,
     _validar_obices,
     _validar_temas,
+    executar_etapa2,
     validar_prerequisito_etapa1,
 )
 from src.models import (
@@ -23,6 +26,12 @@ from src.models import (
     TemaEtapa2,
 )
 from src.state_manager import restaurar_estado, salvar_estado
+from src.sumula_taxonomy import (
+    SUMULAS_STF as TAXONOMY_SUMULAS_STF,
+    SUMULAS_STJ as TAXONOMY_SUMULAS_STJ,
+    SUMULAS_TAXONOMY_VERSION,
+    SUMULAS_VALIDAS as TAXONOMY_SUMULAS_VALIDAS,
+)
 
 
 SAMPLE_ETAPA2_RESPONSE = """
@@ -31,16 +40,20 @@ Matéria: Indenização por dano moral decorrente de inadimplemento contratual
 Conclusão: O tribunal entendeu pela inexistência do dano, mantendo a sentença
 Aplicação de Tema: Tema 952 do STJ — Sim
 Óbices: Súmula 7 do STJ
+Trecho: "No caso, não se verifica abalo moral indenizável, razão pela qual a sentença deve ser mantida."
 
 Tema 2: Honorários Advocatícios
 Matéria: Fixação e majoração dos honorários sucumbenciais
 Conclusão: Mantidos honorários em 10% sobre o valor da causa
 Aplicação de Tema: Não se aplica
 Óbices: Súmula 7 do STJ, Súmula 83 do STJ
+Trecho: "Os honorários foram fixados em 10% e não comportam revisão em recurso especial."
 
 Tema 3: Valor da Causa
 Matéria: Adequação do valor atribuído à causa
 Conclusão: Valor mantido conforme fixado em primeira instância
+Óbices: Súmula 7 do STJ
+Trecho: "A revisão do valor da causa demanda revolvimento fático-probatório."
 """
 
 
@@ -85,13 +98,24 @@ class TestValidacaoSumulas:
         alertas = _validar_obices([tema], "texto")
         assert any("999" in a and "lista permitida" in a for a in alertas)
 
+    def test_obice_lastro_accepts_normalized_variant(self) -> None:
+        tema = TemaEtapa2(obices_sumulas=["Súmula 7/STJ"])
+        alertas = _validar_obices([tema], "Incide a sumula n 7 do stj no caso concreto.")
+        assert not any("sem lastro" in a for a in alertas)
+
     def test_stj_sumulas_complete(self) -> None:
         expected = {5, 7, 13, 83, 126, 211, 518}
         assert SUMULAS_STJ == expected
+        assert TAXONOMY_SUMULAS_STJ == expected
 
     def test_stf_sumulas_complete(self) -> None:
         expected = {279, 280, 281, 282, 283, 284, 356, 735}
         assert SUMULAS_STF == expected
+        assert TAXONOMY_SUMULAS_STF == expected
+
+    def test_sumulas_taxonomy_is_versioned(self) -> None:
+        assert SUMULAS_TAXONOMY_VERSION == "2026.02.13"
+        assert TAXONOMY_SUMULAS_VALIDAS == SUMULAS_VALIDAS
 
 
 # --- 4.5.3: Multiple theme extraction ---
@@ -125,6 +149,24 @@ class TestCamposAusentes:
         tema = TemaEtapa2(materia_controvertida="algo")
         alertas = _validar_temas([tema])
         assert any("conclusão" in a for a in alertas)
+
+    def test_detects_missing_obices(self) -> None:
+        tema = TemaEtapa2(
+            materia_controvertida="algo",
+            conclusao_fundamentos="conclusao",
+            trecho_transcricao="trecho",
+        )
+        alertas = _validar_temas([tema])
+        assert any("óbices" in a for a in alertas)
+
+    def test_detects_missing_trecho_literal(self) -> None:
+        tema = TemaEtapa2(
+            materia_controvertida="algo",
+            conclusao_fundamentos="conclusao",
+            obices_sumulas=["Súmula 7"],
+        )
+        alertas = _validar_temas([tema])
+        assert any("trecho literal" in a for a in alertas)
 
     def test_detects_no_themes(self) -> None:
         alertas = _validar_temas([])
@@ -168,3 +210,105 @@ class TestEtapa2Integration:
             prompt_sistema="Analise o acórdão e identifique temas.",
         )
         assert isinstance(resultado, ResultadoEtapa2)
+
+
+class TestEtapa2StructuredJson:
+    """Test structured JSON conversion and fallback behavior."""
+
+    def test_resultado_from_json_payload(self) -> None:
+        payload = {
+            "temas": [
+                {
+                    "materia_controvertida": "Dano moral",
+                    "conclusao_fundamentos": "Indeferido por ausência de prova.",
+                    "base_vinculante": "Tema 952/STJ",
+                    "obices_sumulas": ["Súmula 7"],
+                    "trecho_transcricao": "Trecho literal do acórdão.",
+                    "evidencias_campos": {
+                        "materia_controvertida": {
+                            "citacao_literal": "Dano moral no inadimplemento",
+                            "pagina": 1,
+                            "ancora": "Tema 1",
+                            "offset_inicio": 12,
+                        }
+                    },
+                }
+            ]
+        }
+        resultado = _resultado_etapa2_from_json(payload)
+        assert len(resultado.temas) == 1
+        assert resultado.temas[0].materia_controvertida == "Dano moral"
+        assert resultado.temas[0].obices_sumulas == ["Súmula 7"]
+        assert "materia_controvertida" in resultado.temas[0].evidencias_campos
+        assert resultado.temas[0].evidencias_campos["materia_controvertida"].pagina == 1
+
+    def test_executar_etapa2_structured_success(self, monkeypatch) -> None:
+        payload = {
+            "temas": [
+                {
+                    "materia_controvertida": "Dano moral",
+                    "conclusao_fundamentos": "Improcedência mantida por ausência de abalo.",
+                    "base_vinculante": "",
+                    "obices_sumulas": ["Súmula 7"],
+                    "trecho_transcricao": "Não se verifica dano moral indenizável.",
+                }
+            ]
+        }
+        monkeypatch.setattr("src.etapa2.chamar_llm_json", lambda **kwargs: payload)
+
+        def _should_not_call_llm(**kwargs):
+            raise AssertionError("fallback legacy should not be called")
+
+        monkeypatch.setattr("src.etapa2.chamar_llm", _should_not_call_llm)
+
+        r1 = ResultadoEtapa1(numero_processo="123", recorrente="TESTE")
+        resultado = executar_etapa2(
+            texto_acordao=(
+                "ACÓRDÃO sobre dano moral. Não se verifica dano moral indenizável. "
+                "Improcedência mantida por ausência de abalo. Incide a Súmula 7."
+            ),
+            resultado_etapa1=r1,
+            prompt_sistema="prompt",
+            modelo_override="gpt-4o",
+        )
+        assert len(resultado.temas) == 1
+        assert resultado.temas[0].materia_controvertida == "Dano moral"
+        evidencias = resultado.temas[0].evidencias_campos
+        for campo in ("materia_controvertida", "conclusao_fundamentos", "obices_sumulas", "trecho_transcricao"):
+            assert campo in evidencias
+            assert evidencias[campo].pagina is not None
+
+    def test_validar_evidencias_temas_detects_missing_evidence(self) -> None:
+        tema = TemaEtapa2(
+            materia_controvertida="Dano moral",
+            conclusao_fundamentos="Improcedência",
+            obices_sumulas=["Súmula 7"],
+            trecho_transcricao="não se verifica dano moral",
+        )
+        alertas = _validar_evidencias_temas([tema], "texto do acórdão com súmula 7")
+        assert any("sem evidência" in a for a in alertas)
+
+    def test_executar_etapa2_structured_failure_fallback(self, monkeypatch) -> None:
+        calls = {"json": 0}
+
+        def _fail_json(**kwargs):
+            calls["json"] += 1
+            raise RuntimeError("json inválido")
+
+        monkeypatch.setattr("src.etapa2.chamar_llm_json", _fail_json)
+
+        class _FakeResponse:
+            content = SAMPLE_ETAPA2_RESPONSE
+            tokens = type("T", (), {"total_tokens": 200, "prompt_tokens": 120, "completion_tokens": 80})()
+
+        monkeypatch.setattr("src.etapa2.chamar_llm", lambda **kwargs: _FakeResponse())
+
+        r1 = ResultadoEtapa1(numero_processo="123", recorrente="TESTE")
+        resultado = executar_etapa2(
+            texto_acordao="ACÓRDÃO com múltiplos temas e súmulas",
+            resultado_etapa1=r1,
+            prompt_sistema="prompt",
+            modelo_override="gpt-4o",
+        )
+        assert calls["json"] == 2
+        assert len(resultado.temas) >= 2

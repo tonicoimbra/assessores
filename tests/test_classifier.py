@@ -6,6 +6,7 @@ import pytest
 
 from src.classifier import (
     ClassificationResult,
+    DocumentClassificationError,
     _classificar_por_heuristica,
     agrupar_documentos,
     classificar_documento,
@@ -44,6 +45,8 @@ class TestHeuristicaRecurso:
         r = _classificar_por_heuristica(texto)
         assert r.tipo == TipoDocumento.RECURSO
         assert r.confianca >= 0.7
+        assert r.matched_recurso_patterns
+        assert r.evidence_snippets
 
 
 # --- 2.4.4: Heuristic classification — acórdão ---
@@ -122,6 +125,25 @@ class TestFallbackLLM:
             assert resultado.tipo == TipoDocumento.RECURSO
             assert resultado.metodo == "heuristica"
 
+    @patch("src.classifier._classificar_por_heuristica")
+    def test_crosscheck_downgrades_conflicting_primary_classification(self, mock_heuristica) -> None:
+        mock_heuristica.return_value = ClassificationResult(
+            tipo=TipoDocumento.RECURSO,
+            confianca=0.9,
+            metodo="heuristica",
+        )
+        texto = (
+            "ACÓRDÃO\nEMENTA\nACORDAM os desembargadores da Câmara Cível.\n"
+            "Vistos, relatados e discutidos."
+        )
+        resultado = classificar_documento(texto)
+
+        assert resultado.tipo == TipoDocumento.DESCONHECIDO
+        assert resultado.confianca <= 0.49
+        assert "crosscheck" in resultado.metodo
+        assert resultado.verifier_ok is False
+        assert resultado.verifier_tipo == TipoDocumento.ACORDAO
+
 
 # --- Classification of multiple documents ---
 
@@ -143,6 +165,27 @@ class TestClassificarDocumentos:
         result = classificar_documentos(docs)
         assert result[0].tipo == TipoDocumento.RECURSO
         assert result[1].tipo == TipoDocumento.ACORDAO
+        assert result[0].classification_audit is not None
+        assert result[1].classification_audit is not None
+        assert result[0].classification_audit.method in {"heuristica", "llm"}
+        assert result[1].classification_audit.method in {"heuristica", "llm"}
+
+    def test_persists_classification_evidence(self) -> None:
+        docs = [
+            DocumentoEntrada(
+                filepath="recurso.pdf",
+                texto_extraido="PROJUDI - Recurso: Recurso Especial razões recursais art. 105, III",
+            ),
+        ]
+        result = classificar_documentos(docs)
+        audit = result[0].classification_audit
+        assert audit is not None
+        assert audit.method == "heuristica"
+        assert audit.heuristic_score_recurso >= 0.7
+        assert len(audit.matched_recurso_patterns) > 0
+        assert len(audit.evidence_snippets) > 0
+        assert audit.verifier_ok is True
+        assert audit.verifier_tipo in {"RECURSO", "DESCONHECIDO"}
 
     def test_warns_when_no_recurso(self, caplog) -> None:
         docs = [
@@ -154,6 +197,34 @@ class TestClassificarDocumentos:
         with caplog.at_level("WARNING"):
             classificar_documentos(docs)
         assert any("Nenhum RECURSO" in r.message for r in caplog.records)
+
+    def test_strict_mode_raises_when_no_recurso(self) -> None:
+        docs = [
+            DocumentoEntrada(
+                filepath="acordao.pdf",
+                texto_extraido="ACÓRDÃO EMENTA Câmara Cível ACORDAM",
+            ),
+        ]
+        with pytest.raises(DocumentClassificationError):
+            classificar_documentos(docs, strict=True)
+
+    def test_strict_mode_raises_when_multiple_recursos(self) -> None:
+        docs = [
+            DocumentoEntrada(
+                filepath="recurso1.pdf",
+                texto_extraido="Recurso Especial razões recursais art. 105, III",
+            ),
+            DocumentoEntrada(
+                filepath="recurso2.pdf",
+                texto_extraido="Recurso Extraordinário razões recursais art. 102, III",
+            ),
+            DocumentoEntrada(
+                filepath="acordao.pdf",
+                texto_extraido="ACÓRDÃO EMENTA Câmara Cível ACORDAM",
+            ),
+        ]
+        with pytest.raises(DocumentClassificationError):
+            classificar_documentos(docs, strict=True)
 
 
 class TestAgruparDocumentos:

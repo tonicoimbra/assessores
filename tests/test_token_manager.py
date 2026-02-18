@@ -112,6 +112,38 @@ class TestTextChunker:
             # This is hard to test precisely, so just check chunks overlap
             assert len(chunks) >= 2
 
+    def test_chunk_with_coverage_map(self):
+        """Test semantic chunking with auditable coverage map output."""
+        chunker = TextChunker(max_tokens=500, overlap_tokens=120)
+        text = "\n\n".join(
+            [
+                "EMENTA\nRecurso especial sobre responsabilidade civil.",
+                "RELATÓRIO\n" + ("Fato processual relevante. " * 40),
+                "VOTO\n" + ("Fundamento jurídico detalhado. " * 60),
+                "DISPOSITIVO\n" + ("Conclusão do julgamento. " * 30),
+            ]
+        )
+
+        chunks, report = chunker.chunk_text_with_coverage(text, "gpt-4o")
+
+        assert len(chunks) >= 2
+        assert report["aplicado"] is True
+        assert report["chunk_count"] == len(chunks)
+        assert report["coverage_ratio_chars"] > 0.95
+        assert report["coverage_ratio_tokens"] > 0.95
+        assert len(report["coverage_map"]) == len(chunks)
+        assert all("sections" in c for c in report["coverage_map"])
+
+    def test_chunk_overlap_control_does_not_explode(self):
+        """Ensure overlap per chunk is controlled by configured overlap budget."""
+        chunker = TextChunker(max_tokens=500, overlap_tokens=80)
+        text = "\n\n".join([f"Parágrafo {i}. " + ("texto " * 70) for i in range(25)])
+        _, report = chunker.chunk_text_with_coverage(text, "gpt-4o")
+
+        if report["aplicado"]:
+            for item in report["coverage_map"][1:]:
+                assert item["overlap_prev_tokens"] <= 150
+
     def test_chunk_by_sections(self):
         """Test chunking by legal document sections."""
         chunker = TextChunker()
