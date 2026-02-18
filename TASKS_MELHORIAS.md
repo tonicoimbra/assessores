@@ -133,11 +133,11 @@
 
 ## 6) Contexto, Chunking e Perda de Informação (P0)
 
-- [ ] **CTX-001** Substituir truncamento linear por chunking semântico com cobertura total.
-- [ ] **CTX-002** Garantir preservação de início, meio e fim do documento em qualquer redução.
-- [ ] **CTX-003** Implementar rastreio de cobertura por chunk (`coverage_map`).
-- [ ] **CTX-004** Alertar e bloquear quando cobertura útil < threshold.
-- [ ] **CTX-005** Adicionar estratégia map-reduce com reconciliação determinística.
+- [x] **CTX-001** Substituir truncamento linear por chunking semântico com cobertura total.
+- [x] **CTX-002** Garantir preservação de início, meio e fim do documento em qualquer redução.
+- [x] **CTX-003** Implementar rastreio de cobertura por chunk (`coverage_map`).
+- [x] **CTX-004** Alertar e bloquear quando cobertura útil < threshold.
+- [x] **CTX-005** Adicionar estratégia map-reduce com reconciliação determinística.
 
 ## 7) Cliente LLM e Robustez de Chamada (P0)
 

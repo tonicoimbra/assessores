@@ -28,6 +28,8 @@ from src.config import (
     PROMPT_PROFILE,
     CLASSIFICATION_MANUAL_REVIEW_CONFIDENCE_THRESHOLD,
     CLASSIFICATION_MANUAL_REVIEW_MARGIN_THRESHOLD,
+    ENABLE_CONTEXT_COVERAGE_GATE,
+    CONTEXT_MIN_COVERAGE_RATIO,
     REQUIRE_EXACTLY_ONE_RECURSO,
     MODEL_LEGAL_ANALYSIS,
     MODEL_DRAFT_GENERATION,
@@ -97,6 +99,7 @@ class PipelineValidationError(Exception):
 
 
 BLOQUEIO_CODIGOS: dict[str, str] = {
+    "CTX_COBERTURA_BAIXA": "Cobertura de contexto útil abaixo do mínimo após chunking.",
     "PDF_QUALIDADE_BAIXA": "Qualidade de extração dos PDFs abaixo do mínimo configurado.",
     "E1_INCONCLUSIVA": "Etapa 1 inconclusiva, execução bloqueada antes da Etapa 2.",
     "E2_VALIDACAO_FAIL": "Etapa 2 inválida em política fail-closed.",
@@ -361,6 +364,29 @@ def _avaliar_politica_escalonamento(
         "thresholds": thresholds,
         "motivos": motivos,
     }
+
+
+def _avaliar_cobertura_chunking_insuficiente(
+    chunking_audit: dict[str, Any] | None,
+) -> tuple[bool, str]:
+    """Check whether chunking coverage is below configured fail-closed threshold."""
+    if not ENABLE_CONTEXT_COVERAGE_GATE:
+        return False, ""
+    if not chunking_audit or not bool(chunking_audit.get("aplicado")):
+        return False, ""
+
+    ratio_chars = float(chunking_audit.get("coverage_ratio_chars", 1.0) or 0.0)
+    ratio_tokens = float(chunking_audit.get("coverage_ratio_tokens", 1.0) or 0.0)
+    ratio_min = min(ratio_chars, ratio_tokens)
+    if ratio_min >= CONTEXT_MIN_COVERAGE_RATIO:
+        return False, ""
+
+    detalhe = (
+        f"coverage_ratio_chars={ratio_chars:.3f}, "
+        f"coverage_ratio_tokens={ratio_tokens:.3f}, "
+        f"threshold={CONTEXT_MIN_COVERAGE_RATIO:.3f}"
+    )
+    return True, detalhe
 
 
 def _calcular_confiancas_pipeline(
@@ -913,6 +939,29 @@ class PipelineAdmissibilidade:
                             "coverage_ratio_tokens": etapa1_chunking_audit.get("coverage_ratio_tokens", 0.0),
                         },
                     )
+            cobertura_insuficiente, detalhe_cobertura = _avaliar_cobertura_chunking_insuficiente(
+                etapa1_chunking_audit
+            )
+            if self.fail_closed and cobertura_insuficiente:
+                _definir_motivo_bloqueio(
+                    estado,
+                    "CTX_COBERTURA_BAIXA",
+                    f"etapa1: {detalhe_cobertura}",
+                )
+                _log_structured_event(
+                    evento="pipeline_bloqueado",
+                    processo_id=processo_id,
+                    execucao_id=execucao_id,
+                    etapa="etapa1",
+                    extra={
+                        "motivo_bloqueio_codigo": estado.metadata.motivo_bloqueio_codigo,
+                        "motivo_bloqueio_descricao": estado.metadata.motivo_bloqueio_descricao,
+                    },
+                )
+                raise PipelineValidationError(
+                    f"MOTIVO_BLOQUEIO[{estado.metadata.motivo_bloqueio_codigo}] "
+                    + estado.metadata.motivo_bloqueio_descricao
+                )
 
             if self.fail_closed:
                 erros_e1 = _validar_etapa1(estado.resultado_etapa1)
@@ -1011,6 +1060,29 @@ class PipelineAdmissibilidade:
                             "coverage_ratio_tokens": etapa2_chunking_audit.get("coverage_ratio_tokens", 0.0),
                         },
                     )
+            cobertura_insuficiente, detalhe_cobertura = _avaliar_cobertura_chunking_insuficiente(
+                etapa2_chunking_audit
+            )
+            if self.fail_closed and cobertura_insuficiente:
+                _definir_motivo_bloqueio(
+                    estado,
+                    "CTX_COBERTURA_BAIXA",
+                    f"etapa2: {detalhe_cobertura}",
+                )
+                _log_structured_event(
+                    evento="pipeline_bloqueado",
+                    processo_id=processo_id,
+                    execucao_id=execucao_id,
+                    etapa="etapa2",
+                    extra={
+                        "motivo_bloqueio_codigo": estado.metadata.motivo_bloqueio_codigo,
+                        "motivo_bloqueio_descricao": estado.metadata.motivo_bloqueio_descricao,
+                    },
+                )
+                raise PipelineValidationError(
+                    f"MOTIVO_BLOQUEIO[{estado.metadata.motivo_bloqueio_codigo}] "
+                    + estado.metadata.motivo_bloqueio_descricao
+                )
 
             self.metricas["tempo_etapa2"] = time.time() - t0
             _log_structured_event(
@@ -1097,6 +1169,29 @@ class PipelineAdmissibilidade:
                             "coverage_ratio_tokens": etapa3_chunking_audit.get("coverage_ratio_tokens", 0.0),
                         },
                     )
+            cobertura_insuficiente, detalhe_cobertura = _avaliar_cobertura_chunking_insuficiente(
+                etapa3_chunking_audit
+            )
+            if self.fail_closed and cobertura_insuficiente:
+                _definir_motivo_bloqueio(
+                    estado,
+                    "CTX_COBERTURA_BAIXA",
+                    f"etapa3: {detalhe_cobertura}",
+                )
+                _log_structured_event(
+                    evento="pipeline_bloqueado",
+                    processo_id=processo_id,
+                    execucao_id=execucao_id,
+                    etapa="etapa3",
+                    extra={
+                        "motivo_bloqueio_codigo": estado.metadata.motivo_bloqueio_codigo,
+                        "motivo_bloqueio_descricao": estado.metadata.motivo_bloqueio_descricao,
+                    },
+                )
+                raise PipelineValidationError(
+                    f"MOTIVO_BLOQUEIO[{estado.metadata.motivo_bloqueio_codigo}] "
+                    + estado.metadata.motivo_bloqueio_descricao
+                )
 
             if self.fail_closed:
                 erros_e3 = _validar_etapa3(estado.resultado_etapa3)

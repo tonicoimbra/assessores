@@ -460,6 +460,89 @@ class TestFailClosedValidation:
         assert msg.startswith("MOTIVO_BLOQUEIO[PDF_QUALIDADE_BAIXA]")
         assert "quality_score" in msg or "noise_ratio" in msg
 
+    def test_pipeline_blocks_when_chunking_coverage_is_insufficient(self, monkeypatch) -> None:
+        monkeypatch.setattr("src.pipeline.ENABLE_CONTEXT_COVERAGE_GATE", True)
+        monkeypatch.setattr("src.pipeline.CONTEXT_MIN_COVERAGE_RATIO", 0.95)
+
+        monkeypatch.setattr(
+            "src.pipeline.extrair_texto",
+            lambda _path: ExtractionResult(
+                texto="Texto suficiente para seguir",
+                num_paginas=1,
+                num_caracteres=32,
+                engine_usada="pymupdf",
+                raw_text_by_page=["Texto suficiente para seguir"],
+                clean_text_by_page=["Texto suficiente para seguir"],
+                quality_score=0.95,
+                noise_ratio=0.0,
+            ),
+        )
+
+        def _fake_classificar_documentos(documentos, **kwargs):
+            for doc in documentos:
+                doc.tipo = (
+                    TipoDocumento.RECURSO
+                    if "recurso" in doc.filepath.lower()
+                    else TipoDocumento.ACORDAO
+                )
+            return documentos
+
+        monkeypatch.setattr("src.pipeline.classificar_documentos", _fake_classificar_documentos)
+
+        def _fake_etapa1(
+            _texto,
+            _prompt,
+            modelo_override=None,
+            chunking_audit=None,
+        ):
+            if isinstance(chunking_audit, dict):
+                chunking_audit.update(
+                    {
+                        "aplicado": True,
+                        "chunk_count": 2,
+                        "coverage_ratio_chars": 0.45,
+                        "coverage_ratio_tokens": 0.50,
+                    }
+                )
+            return ResultadoEtapa1(
+                numero_processo="123",
+                recorrente="JOÃO",
+                especie_recurso="RECURSO ESPECIAL",
+                evidencias_campos={
+                    "numero_processo": CampoEvidencia(citacao_literal="Processo 123", pagina=1, ancora="Processo"),
+                    "recorrente": CampoEvidencia(citacao_literal="Recorrente JOÃO", pagina=1, ancora="Recorrente"),
+                    "especie_recurso": CampoEvidencia(citacao_literal="RECURSO ESPECIAL", pagina=1, ancora="Espécie"),
+                },
+                verificacao_campos={
+                    "numero_processo": True,
+                    "recorrente": True,
+                    "especie_recurso": True,
+                },
+            )
+
+        monkeypatch.setattr("src.pipeline.executar_etapa1", _fake_etapa1)
+        monkeypatch.setattr("src.pipeline.executar_etapa1_com_chunking", _fake_etapa1)
+
+        def _should_not_call_etapa2(*args, **kwargs):
+            raise AssertionError("Etapa 2 não deve iniciar quando cobertura de chunking é insuficiente")
+
+        monkeypatch.setattr("src.pipeline.executar_etapa2", _should_not_call_etapa2)
+        monkeypatch.setattr("src.pipeline.executar_etapa2_com_chunking", _should_not_call_etapa2)
+        monkeypatch.setattr("src.pipeline.executar_etapa2_paralelo", _should_not_call_etapa2)
+
+        pipeline = PipelineAdmissibilidade()
+        with pytest.raises(PipelineValidationError) as exc:
+            pipeline.executar(
+                pdfs=["/tmp/recurso.pdf", "/tmp/acordao.pdf"],
+                processo_id="test_ctx_coverage_gate",
+                continuar=False,
+            )
+
+        msg = str(exc.value)
+        assert msg.startswith("MOTIVO_BLOQUEIO[CTX_COBERTURA_BAIXA]")
+        assert "etapa1" in msg
+        assert "coverage_ratio" in msg
+
     def test_validar_etapa2_detects_missing_themes(self) -> None:
         erros = _validar_etapa2(ResultadoEtapa2(temas=[]))
         assert any("sem temas" in e for e in erros)

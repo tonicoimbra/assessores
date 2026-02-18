@@ -73,6 +73,12 @@ CONTEXT_WARNING_RATIO: float = 0.8  # Warn at 80% of limit
 TOKEN_BUDGET_RATIO: float = float(os.getenv("TOKEN_BUDGET_RATIO", "0.7"))  # Use 70% as safety margin
 CHUNK_OVERLAP_TOKENS: int = int(os.getenv("CHUNK_OVERLAP_TOKENS", "500"))
 MAX_CONTEXT_TOKENS: int = int(os.getenv("MAX_CONTEXT_TOKENS", "25000"))  # Respect TPM limit of 30k/min
+ENABLE_CONTEXT_COVERAGE_GATE: bool = (
+    os.getenv("ENABLE_CONTEXT_COVERAGE_GATE", "true").lower() == "true"
+)
+CONTEXT_MIN_COVERAGE_RATIO: float = float(
+    os.getenv("CONTEXT_MIN_COVERAGE_RATIO", "0.9")
+)
 
 # --- Rate Limiting (Tokens per minute per model) ---
 RATE_LIMIT_TPM: dict[str, int] = {
