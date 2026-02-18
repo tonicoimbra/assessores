@@ -20,6 +20,7 @@ Os seguintes thresholds são avaliados pelo comando de gate:
 2. `etapa1_critical_fields_accuracy >= 0.980`
 3. `etapa2_proxy_f1 >= 0.970`
 4. `etapa3_decisao_accuracy >= 0.990`
+5. `critical_evidence_failures_zero >= 1.000` (nenhum caso com falha crítica de evidência)
 
 Observação:
 - `etapa2_proxy_f1` é uma aproximação operacional calculada a partir de acurácia de contagem de temas e acurácia de óbice esperado no dataset ouro.
@@ -32,6 +33,9 @@ O pipeline deve bloquear conclusão quando faltarem evidências críticas ou qua
 2. Etapa 2 inválida bloqueia Etapa 3.
 3. Decisão `INCONCLUSIVO` exige aviso explícito e motivo padronizado.
 4. Sem evidência suficiente, não emitir decisão conclusiva.
+
+Cobertura operacional:
+- Em qualquer erro de execução (incluindo bloqueios fail-closed), o handler global gera auditoria emergencial (`auditoria_*.md`, `auditoria_*.json`, `snapshot_execucao_*.json`) para manter rastreabilidade completa.
 
 ## Gate automatizado
 

@@ -166,6 +166,53 @@ class TestStateRecovery:
             assert path is None
             assert list(dead_letter_dir.glob("*.json")) == []
 
+    def test_error_handler_generates_emergency_audit_artifacts(self, tmp_path: Path) -> None:
+        checkpoint_dir = tmp_path / "checkpoints"
+        dead_letter_dir = tmp_path / "dead_letter"
+        output_dir = tmp_path / "outputs"
+        metricas: dict[str, object] = {}
+
+        with (
+            patch("src.state_manager.CHECKPOINT_DIR", checkpoint_dir),
+            patch("src.dead_letter_queue.DEAD_LETTER_DIR", dead_letter_dir),
+        ):
+            estado = EstadoPipeline(
+                metadata=MetadadosPipeline(execucao_id="exec-audit"),
+                documentos_entrada=[
+                    DocumentoEntrada(
+                        filepath="recurso.pdf",
+                        texto_extraido="texto recurso",
+                        tipo=TipoDocumento.RECURSO,
+                    )
+                ],
+            )
+            exc = PipelineValidationError(
+                "MOTIVO_BLOQUEIO[E1_INCONCLUSIVA] Campo obrigatório ausente: recorrente"
+            )
+            dlq_path = handle_pipeline_error(
+                exc,
+                estado=estado,
+                processo_id="proc_audit",
+                metricas=metricas,
+                contexto={"origem": "teste", "output_dir": str(output_dir)},
+            )
+
+        assert dlq_path is not None
+        assert dlq_path.exists()
+        assert metricas.get("auditoria_emergencial") is True
+
+        auditoria_md = Path(str(metricas.get("arquivo_auditoria", "")))
+        auditoria_json = Path(str(metricas.get("arquivo_auditoria_json", "")))
+        snapshot = Path(str(metricas.get("arquivo_snapshot_execucao", "")))
+        assert auditoria_md.exists()
+        assert auditoria_json.exists()
+        assert snapshot.exists()
+
+        payload = json.loads(auditoria_json.read_text(encoding="utf-8"))
+        assert payload["motivo_bloqueio"]["codigo"] == "E1_INCONCLUSIVA"
+        assert any("erro_pipeline:" in a for a in payload["alertas_validacao"])
+        assert any("origem: teste" in a for a in payload["alertas_validacao"])
+
 
 # --- 6.4.3: CLI arguments ---
 
@@ -459,6 +506,49 @@ class TestFailClosedValidation:
         msg = str(exc.value)
         assert msg.startswith("MOTIVO_BLOQUEIO[PDF_QUALIDADE_BAIXA]")
         assert "quality_score" in msg or "noise_ratio" in msg
+
+    def test_fail_closed_error_generates_audit_via_handler(self, monkeypatch, tmp_path: Path) -> None:
+        monkeypatch.setattr("src.pipeline.ENABLE_EXTRACTION_QUALITY_GATE", True)
+        monkeypatch.setattr("src.pipeline.EXTRACTION_MIN_QUALITY_SCORE", 0.5)
+        monkeypatch.setattr("src.pipeline.EXTRACTION_MAX_NOISE_RATIO", 0.4)
+
+        monkeypatch.setattr(
+            "src.pipeline.extrair_texto",
+            lambda _path: ExtractionResult(
+                texto="",
+                num_paginas=1,
+                num_caracteres=0,
+                engine_usada="pdfplumber",
+                raw_text_by_page=["Página 1 de 1"],
+                clean_text_by_page=[""],
+                quality_score=0.1,
+                noise_ratio=1.0,
+            ),
+        )
+        monkeypatch.setattr("src.pipeline.classificar_documentos", lambda *args, **kwargs: args[0])
+
+        pipeline = PipelineAdmissibilidade(formato_saida="md", saida_dir=str(tmp_path / "outputs"))
+        with pytest.raises(PipelineValidationError) as exc:
+            pipeline.executar(
+                pdfs=["/tmp/recurso.pdf", "/tmp/acordao.pdf"],
+                processo_id="test_fail_closed_audit",
+                continuar=False,
+            )
+
+        metricas: dict[str, object] = {}
+        handle_pipeline_error(
+            exc.value,
+            estado=pipeline.estado_atual,
+            processo_id="test_fail_closed_audit",
+            metricas=metricas,
+            contexto={"origem": "teste", "output_dir": str(tmp_path / "outputs")},
+        )
+
+        auditoria_json = Path(str(metricas.get("arquivo_auditoria_json", "")))
+        assert auditoria_json.exists()
+        payload = json.loads(auditoria_json.read_text(encoding="utf-8"))
+        assert payload["motivo_bloqueio"]["codigo"] == "PDF_QUALIDADE_BAIXA"
+        assert any("erro_pipeline: PipelineValidationError" in a for a in payload["alertas_validacao"])
 
     def test_pipeline_blocks_when_chunking_coverage_is_insufficient(self, monkeypatch) -> None:
         monkeypatch.setattr("src.pipeline.ENABLE_CONTEXT_COVERAGE_GATE", True)

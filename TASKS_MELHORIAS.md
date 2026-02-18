@@ -203,6 +203,6 @@
 
 - [x] **PRD-READY-001** Todos os itens P0 concluídos e testados.
 - [ ] **PRD-READY-002** Gates de qualidade atendidos por 3 execuções consecutivas no CI.
-- [ ] **PRD-READY-003** 0 falhas críticas de evidência em dataset ouro.
-- [ ] **PRD-READY-004** Política fail-closed ativa e validada em cenários de erro.
-- [ ] **PRD-READY-005** Auditoria completa disponível para 100% dos casos processados.
+- [x] **PRD-READY-003** 0 falhas críticas de evidência em dataset ouro.
+- [x] **PRD-READY-004** Política fail-closed ativa e validada em cenários de erro.
+- [x] **PRD-READY-005** Auditoria completa disponível para 100% dos casos processados.

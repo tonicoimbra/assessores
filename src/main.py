@@ -97,6 +97,7 @@ def cmd_processar(args: argparse.Namespace) -> None:
                 "origem": "cli",
                 "pdfs_informados": len(args.pdfs),
                 "formato_saida": args.formato,
+                "output_dir": args.saida or "",
             },
         )
         print(f"\n{get_friendly_error(e)}")

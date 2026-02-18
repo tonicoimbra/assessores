@@ -201,6 +201,7 @@ def processar():
                 "origem": "web",
                 "modelo": modelo,
                 "formato_saida": formato,
+                "output_dir": str(OUTPUTS_DIR),
                 "upload_dir": str(upload_dir),
                 "total_arquivos": 1 + len(acordao_paths),
             },

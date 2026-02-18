@@ -19,6 +19,7 @@ from src.models import (
 )
 from src.pdf_processor import ExtractionResult
 from src.pipeline import PipelineAdmissibilidade
+from src.pipeline import _validar_etapa1, _validar_etapa2
 
 GOLDEN_ROOT = BASE_DIR / "tests" / "fixtures" / "golden"
 
@@ -188,6 +189,22 @@ def _evaluate_case(case: dict[str, Any], output_dir: Path) -> dict[str, Any]:
     if max_conf is not None and conf > float(max_conf):
         conf_ok = 0
 
+    erros_e1 = _validar_etapa1(etapa1) if etapa1 else ["Etapa 1 não executada."]
+    erros_e2 = _validar_etapa2(etapa2) if etapa2 else ["Etapa 2 não executada."]
+    indicadores_evidencia = (
+        "sem evidência",
+        "sem citação literal",
+        "sem página válida",
+        "sem âncora",
+        "sem verificação independente positiva",
+    )
+    falhas_criticas_evidencia = [
+        erro
+        for erro in (erros_e1 + erros_e2)
+        if any(indicador in erro.lower() for indicador in indicadores_evidencia)
+    ]
+    critical_evidence_failures = len(falhas_criticas_evidencia)
+
     return {
         "case_id": case_id,
         "dataset_version": case.get("dataset_version", ""),
@@ -201,12 +218,15 @@ def _evaluate_case(case: dict[str, Any], output_dir: Path) -> dict[str, Any]:
             "etapa3_decisao_accuracy": float(e3_decisao_ok),
             "etapa3_motivo_bloqueio_accuracy": float(e3_motivo_ok),
             "confianca_global_bounds_accuracy": float(conf_ok),
+            "critical_evidence_failures": float(critical_evidence_failures),
+            "critical_evidence_failures_zero": float(critical_evidence_failures == 0),
         },
         "observed": {
             "decisao": decisao_observada,
             "motivo_bloqueio_codigo": motivo_observado,
             "temas_count": observed_temas,
             "confianca_global": conf,
+            "critical_evidence_failures_detail": falhas_criticas_evidencia,
         },
     }
 
@@ -223,6 +243,7 @@ def _build_summary(cases: list[dict[str, Any]]) -> dict[str, Any]:
         "etapa3_decisao_accuracy",
         "etapa3_motivo_bloqueio_accuracy",
         "confianca_global_bounds_accuracy",
+        "critical_evidence_failures_zero",
     ]
     summary_metrics: dict[str, float] = {}
     for key in metric_keys:
@@ -232,6 +253,9 @@ def _build_summary(cases: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "num_cases": len(cases),
         "metrics": summary_metrics,
+        "critical_evidence_failures_total": int(
+            sum(int(case["metrics"].get("critical_evidence_failures", 0)) for case in cases)
+        ),
     }
 
 
@@ -258,6 +282,8 @@ def _to_markdown(payload: dict[str, Any]) -> str:
         f"- Etapa 3 decisão (acurácia): {metrics['etapa3_decisao_accuracy']:.4f}",
         f"- Etapa 3 motivo de bloqueio (acurácia): {metrics['etapa3_motivo_bloqueio_accuracy']:.4f}",
         f"- Confiança global dentro do intervalo esperado: {metrics['confianca_global_bounds_accuracy']:.4f}",
+        f"- Casos sem falhas críticas de evidência: {metrics['critical_evidence_failures_zero']:.4f}",
+        f"- Falhas críticas de evidência (total): {summary['critical_evidence_failures_total']}",
         "",
         "## Casos",
         "",
@@ -275,7 +301,8 @@ def _to_markdown(payload: dict[str, Any]) -> str:
             f"e2_f1={cm['etapa2_proxy_f1']:.3f}, "
             f"e3_dec={cm['etapa3_decisao_accuracy']:.3f}, "
             f"e3_motivo={cm['etapa3_motivo_bloqueio_accuracy']:.3f}, "
-            f"conf={cm['confianca_global_bounds_accuracy']:.3f}"
+            f"conf={cm['confianca_global_bounds_accuracy']:.3f}, "
+            f"ev_fail={cm['critical_evidence_failures']:.0f}"
         )
     lines.append("")
     return "\n".join(lines)

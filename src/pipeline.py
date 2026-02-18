@@ -3,6 +3,7 @@
 import json
 import logging
 import inspect
+import re
 import time
 from statistics import mean
 from datetime import datetime
@@ -529,6 +530,93 @@ def get_friendly_error(exc: Exception) -> str:
     return FRIENDLY_ERRORS.get(exc_name, f"❌ Erro inesperado: {exc}")
 
 
+def _extrair_motivo_bloqueio_da_excecao(exc: Exception) -> tuple[str, str]:
+    """Extract block code/description from standardized PipelineValidationError text."""
+    mensagem = str(exc or "").strip()
+    match = re.search(r"MOTIVO_BLOQUEIO\[([A-Z0-9_]+)\]\s*(.*)", mensagem)
+    if not match:
+        return "", ""
+    return match.group(1).strip(), match.group(2).strip()
+
+
+def _gerar_auditoria_emergencial_erro(
+    *,
+    exc: Exception,
+    estado: "EstadoPipeline | None",
+    processo_id: str,
+    metricas: dict[str, Any] | None,
+    contexto: dict[str, Any] | None,
+) -> dict[str, str]:
+    """Generate emergency audit artifacts for fail-closed/error scenarios."""
+    if estado is None:
+        return {}
+
+    output_dir_raw = ""
+    origem = ""
+    if isinstance(contexto, dict):
+        output_dir_raw = str(contexto.get("output_dir") or "").strip()
+        origem = str(contexto.get("origem") or "").strip()
+
+    output_dir = Path(output_dir_raw).expanduser() if output_dir_raw else None
+    if estado.metadata.fim is None:
+        estado.metadata.fim = datetime.now()
+    if not estado.metadata.execucao_id:
+        estado.metadata.execucao_id = f"{processo_id}-erro-{int(time.time() * 1000)}"
+
+    validacoes_snapshot: dict[str, list[str]] = {"etapa1": [], "etapa2": [], "etapa3": []}
+    try:
+        _, _, validacoes_snapshot = _calcular_confiancas_pipeline(estado)
+    except Exception:
+        logger.warning("Falha ao calcular validações para auditoria emergencial.", exc_info=True)
+
+    alertas_validacao_auditoria: list[str] = []
+    for etapa, erros in validacoes_snapshot.items():
+        for erro in erros:
+            alertas_validacao_auditoria.append(f"{etapa}: {erro}")
+    if origem:
+        alertas_validacao_auditoria.append(f"origem: {origem}")
+    alertas_validacao_auditoria.append(f"erro_pipeline: {type(exc).__name__}: {exc}")
+
+    numero_proc = processo_id or "sem_numero"
+    if estado.resultado_etapa1 and estado.resultado_etapa1.numero_processo.strip():
+        numero_proc = estado.resultado_etapa1.numero_processo.strip()
+
+    auditoria_path = gerar_relatorio_auditoria(
+        estado,
+        alertas=alertas_validacao_auditoria,
+        numero_processo=numero_proc,
+        output_dir=output_dir,
+    )
+    auditoria_json_path = salvar_trilha_auditoria_json(
+        estado,
+        alertas=alertas_validacao_auditoria,
+        numero_processo=numero_proc,
+        output_dir=output_dir,
+    )
+    snapshot_path = salvar_snapshot_execucao_json(
+        estado,
+        validacoes=validacoes_snapshot,
+        arquivos_saida={
+            "auditoria_markdown": str(auditoria_path),
+            "auditoria_json": str(auditoria_json_path),
+        },
+        numero_processo=numero_proc,
+        output_dir=output_dir,
+    )
+
+    if isinstance(metricas, dict):
+        metricas["arquivo_auditoria"] = str(auditoria_path)
+        metricas["arquivo_auditoria_json"] = str(auditoria_json_path)
+        metricas["arquivo_snapshot_execucao"] = str(snapshot_path)
+        metricas["auditoria_emergencial"] = True
+
+    return {
+        "auditoria_markdown": str(auditoria_path),
+        "auditoria_json": str(auditoria_json_path),
+        "snapshot_execucao": str(snapshot_path),
+    }
+
+
 def handle_pipeline_error(
     exc: Exception,
     estado: "EstadoPipeline | None" = None,
@@ -541,11 +629,31 @@ def handle_pipeline_error(
     dlq_path: Path | None = None
 
     if estado:
+        codigo, descricao = _extrair_motivo_bloqueio_da_excecao(exc)
+        if codigo and not estado.metadata.motivo_bloqueio_codigo.strip():
+            _definir_motivo_bloqueio(
+                estado,
+                codigo,
+                descricao or BLOQUEIO_CODIGOS.get(codigo, ""),
+            )
         try:
             salvar_estado(estado, processo_id)
             logger.info("💾 Estado salvo antes do erro — use --continuar para retomar")
         except Exception:
             logger.error("Falha ao salvar estado de emergência")
+
+        try:
+            artefatos = _gerar_auditoria_emergencial_erro(
+                exc=exc,
+                estado=estado,
+                processo_id=processo_id,
+                metricas=metricas,
+                contexto=contexto,
+            )
+            if artefatos:
+                logger.info("🧾 Auditoria emergencial gerada: %s", artefatos)
+        except Exception:
+            logger.error("Falha ao gerar auditoria emergencial de erro", exc_info=True)
 
     try:
         dlq_path = salvar_dead_letter(

@@ -14,6 +14,7 @@ DEFAULT_PRODUCTION_TARGETS: dict[str, float] = {
     "etapa1_critical_fields_accuracy": 0.98,
     "etapa2_proxy_f1": 0.97,
     "etapa3_decisao_accuracy": 0.99,
+    "critical_evidence_failures_zero": 1.0,
 }
 
 

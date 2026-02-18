@@ -22,3 +22,5 @@ def test_generate_golden_baseline_report(tmp_path: Path) -> None:
     assert 0.0 <= metrics["etapa2_temas_count_accuracy"] <= 1.0
     assert 0.0 <= metrics["etapa2_proxy_f1"] <= 1.0
     assert 0.0 <= metrics["etapa3_decisao_accuracy"] <= 1.0
+    assert 0.0 <= metrics["critical_evidence_failures_zero"] <= 1.0
+    assert payload["summary"]["critical_evidence_failures_total"] >= 0
