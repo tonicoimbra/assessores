@@ -4,6 +4,7 @@ import json
 import logging
 import inspect
 import time
+from statistics import mean
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
@@ -17,6 +18,9 @@ from src.config import (
     ENABLE_CHUNKING,
     ENABLE_CONFIDENCE_ESCALATION,
     ENABLE_FAIL_CLOSED,
+    ENABLE_EXTRACTION_QUALITY_GATE,
+    EXTRACTION_MIN_QUALITY_SCORE,
+    EXTRACTION_MAX_NOISE_RATIO,
     ENABLE_PARALLEL_ETAPA2,
     MIN_ACORDAO_COUNT,
     OPENAI_MODEL,
@@ -90,6 +94,7 @@ class PipelineValidationError(Exception):
 
 
 BLOQUEIO_CODIGOS: dict[str, str] = {
+    "PDF_QUALIDADE_BAIXA": "Qualidade de extração dos PDFs abaixo do mínimo configurado.",
     "E1_INCONCLUSIVA": "Etapa 1 inconclusiva, execução bloqueada antes da Etapa 2.",
     "E2_VALIDACAO_FAIL": "Etapa 2 inválida em política fail-closed.",
     "E3_VALIDACAO_FAIL": "Etapa 3 inválida em política fail-closed.",
@@ -661,6 +666,8 @@ class PipelineAdmissibilidade:
             self._notify("Extraindo texto dos PDFs...", 1, total_steps)
             t0 = time.time()
             documentos = []
+            extracao_metricas_docs: list[dict[str, Any]] = []
+            alertas_extracao_qualidade: list[str] = []
             for pdf_path in pdfs:
                 resultado = extrair_texto(pdf_path)
                 doc = DocumentoEntrada(
@@ -670,8 +677,42 @@ class PipelineAdmissibilidade:
                     num_caracteres=resultado.num_caracteres,
                 )
                 documentos.append(doc)
+                qualidade = float(resultado.quality_score or 0.0)
+                ruido = float(resultado.noise_ratio or 0.0)
+                extracao_metricas_docs.append(
+                    {
+                        "filepath": pdf_path,
+                        "engine": resultado.engine_usada,
+                        "num_paginas": resultado.num_paginas,
+                        "num_caracteres": resultado.num_caracteres,
+                        "quality_score": round(qualidade, 3),
+                        "noise_ratio": round(ruido, 3),
+                        "ocr_aplicado": bool(resultado.ocr_aplicado),
+                        "ocr_confidence": round(float(resultado.ocr_confidence or 0.0), 3),
+                    }
+                )
+                if self.fail_closed and ENABLE_EXTRACTION_QUALITY_GATE:
+                    if qualidade < EXTRACTION_MIN_QUALITY_SCORE:
+                        alertas_extracao_qualidade.append(
+                            f"{Path(pdf_path).name}: quality_score={qualidade:.3f} "
+                            f"< threshold={EXTRACTION_MIN_QUALITY_SCORE:.3f}"
+                        )
+                    if ruido > EXTRACTION_MAX_NOISE_RATIO:
+                        alertas_extracao_qualidade.append(
+                            f"{Path(pdf_path).name}: noise_ratio={ruido:.3f} "
+                            f"> threshold={EXTRACTION_MAX_NOISE_RATIO:.3f}"
+                        )
             estado.documentos_entrada = documentos
             self.metricas["tempo_extracao"] = time.time() - t0
+            self.metricas["extracao_metricas_documentos"] = extracao_metricas_docs
+            quality_values = [m["quality_score"] for m in extracao_metricas_docs]
+            noise_values = [m["noise_ratio"] for m in extracao_metricas_docs]
+            self.metricas["extracao_quality_score_medio"] = (
+                round(mean(quality_values), 3) if quality_values else 0.0
+            )
+            self.metricas["extracao_noise_ratio_medio"] = (
+                round(mean(noise_values), 3) if noise_values else 0.0
+            )
             _log_structured_event(
                 evento="extracao_concluida",
                 processo_id=processo_id,
@@ -680,8 +721,31 @@ class PipelineAdmissibilidade:
                 extra={
                     "duracao_s": round(self.metricas["tempo_extracao"], 3),
                     "documentos": len(documentos),
+                    "quality_score_medio": self.metricas["extracao_quality_score_medio"],
+                    "noise_ratio_medio": self.metricas["extracao_noise_ratio_medio"],
                 },
             )
+
+            if alertas_extracao_qualidade:
+                _definir_motivo_bloqueio(
+                    estado,
+                    "PDF_QUALIDADE_BAIXA",
+                    " | ".join(alertas_extracao_qualidade),
+                )
+                _log_structured_event(
+                    evento="pipeline_bloqueado",
+                    processo_id=processo_id,
+                    execucao_id=execucao_id,
+                    etapa="extracao_pdf",
+                    extra={
+                        "motivo_bloqueio_codigo": estado.metadata.motivo_bloqueio_codigo,
+                        "motivo_bloqueio_descricao": estado.metadata.motivo_bloqueio_descricao,
+                    },
+                )
+                raise PipelineValidationError(
+                    f"MOTIVO_BLOQUEIO[{estado.metadata.motivo_bloqueio_codigo}] "
+                    + estado.metadata.motivo_bloqueio_descricao
+                )
             salvar_estado(estado, processo_id)
 
         # Step 2: Classify documents

@@ -2,8 +2,10 @@
 
 import logging
 import re
+from hashlib import sha256
 from dataclasses import dataclass, field
 from pathlib import Path
+from statistics import mean
 from typing import Any
 
 import fitz  # PyMuPDF
@@ -36,6 +38,13 @@ _NOISE_PATTERNS = [
     re.compile(r"^\s*http[s]?://\S+\s*$", re.IGNORECASE),
     re.compile(r"^\s*[-_=*~]{4,}\s*$"),
 ]
+_LEGAL_CONTENT_PATTERN = re.compile(
+    r"\b("
+    r"art\.?|artigo|lei|cpc|cc|cf|constitui[çc][ãa]o|s[úu]mula|sumula|"
+    r"resp|recurso|ac[óo]rd[ãa]o|processo|apel[aã]o|agravo|tema"
+    r")\b",
+    re.IGNORECASE,
+)
 
 
 class PDFExtractionError(Exception):
@@ -60,12 +69,19 @@ class ExtractionResult:
     engine_usada: str  # "pymupdf" or "pdfplumber"
     raw_text_by_page: list[str] = field(default_factory=list)
     clean_text_by_page: list[str] = field(default_factory=list)
+    raw_page_hashes: list[str] = field(default_factory=list)
+    clean_page_hashes: list[str] = field(default_factory=list)
+    quality_score_by_page: list[float] = field(default_factory=list)
+    noise_ratio_by_page: list[float] = field(default_factory=list)
     pages_with_ocr: list[int] = field(default_factory=list)
     ocr_aplicado: bool = False
     ocr_fallback_successful: bool = False
     ocr_preprocess_aplicado: bool = False
     ocr_preprocess_steps: list[str] = field(default_factory=list)
     quality_score: float = 0.0
+    noise_ratio: float = 0.0
+    ocr_confidence_by_page: list[float] = field(default_factory=list)
+    ocr_confidence: float = 0.0
 
 
 def _extrair_com_pymupdf(filepath: str) -> ExtractionResult:
@@ -91,6 +107,7 @@ def _extrair_com_pymupdf(filepath: str) -> ExtractionResult:
         num_caracteres=len(texto),
         engine_usada="pymupdf",
         raw_text_by_page=pages_text,
+        raw_page_hashes=[sha256((page or "").encode("utf-8")).hexdigest() for page in pages_text],
     )
 
 
@@ -110,6 +127,7 @@ def _extrair_com_pdfplumber(filepath: str) -> ExtractionResult:
         num_caracteres=len(texto),
         engine_usada="pdfplumber",
         raw_text_by_page=pages_text,
+        raw_page_hashes=[sha256((page or "").encode("utf-8")).hexdigest() for page in pages_text],
     )
 
 
@@ -183,6 +201,7 @@ def _extrair_com_ocr(filepath: str) -> ExtractionResult:
 
     pages_text: list[str] = []
     pages_with_ocr: list[int] = []
+    ocr_confidence_by_page: list[float] = []
     preprocess_steps: list[str] = []
     preprocess_aplicado = False
 
@@ -204,6 +223,32 @@ def _extrair_com_ocr(filepath: str) -> ExtractionResult:
                     if step not in preprocess_steps:
                         preprocess_steps.append(step)
         page_text = pytesseract.image_to_string(image, lang=OCR_LANGUAGES) or ""
+        page_confidence = 0.0
+        try:
+            output_type = getattr(getattr(pytesseract, "Output", None), "DICT", None)
+            if output_type is not None:
+                data = pytesseract.image_to_data(
+                    image,
+                    lang=OCR_LANGUAGES,
+                    output_type=output_type,
+                )
+                conf_values: list[float] = []
+                for raw_conf in data.get("conf", []):
+                    try:
+                        conf = float(str(raw_conf).strip())
+                    except (TypeError, ValueError):
+                        continue
+                    if conf >= 0:
+                        conf_values.append(conf)
+                if conf_values:
+                    page_confidence = round(
+                        max(0.0, min(1.0, mean(conf_values) / 100.0)),
+                        3,
+                    )
+        except Exception:
+            logger.debug("Falha ao calcular confiança OCR por página.", exc_info=True)
+        ocr_confidence_by_page.append(page_confidence)
+
         if page_text.strip():
             pages_with_ocr.append(idx + 1)
         pages_text.append(page_text)
@@ -217,11 +262,18 @@ def _extrair_com_ocr(filepath: str) -> ExtractionResult:
         num_caracteres=len(texto),
         engine_usada="ocr",
         raw_text_by_page=pages_text,
+        raw_page_hashes=[sha256((page or "").encode("utf-8")).hexdigest() for page in pages_text],
         pages_with_ocr=pages_with_ocr,
         ocr_aplicado=True,
         ocr_fallback_successful=bool(texto.strip()),
         ocr_preprocess_aplicado=preprocess_aplicado,
         ocr_preprocess_steps=preprocess_steps,
+        ocr_confidence_by_page=ocr_confidence_by_page,
+        ocr_confidence=(
+            round(mean(ocr_confidence_by_page), 3)
+            if ocr_confidence_by_page
+            else 0.0
+        ),
     )
 
 
@@ -231,6 +283,14 @@ def _is_noise_line(line: str) -> bool:
     if not stripped:
         return False
     return any(pattern.match(stripped) for pattern in _NOISE_PATTERNS)
+
+
+def _is_legal_content_line(line: str) -> bool:
+    """Return True for short lines that likely contain valid legal content."""
+    stripped = line.strip()
+    if not stripped:
+        return False
+    return bool(_LEGAL_CONTENT_PATTERN.search(stripped))
 
 
 def _limpar_texto(texto: str) -> str:
@@ -255,7 +315,7 @@ def _limpar_texto(texto: str) -> str:
     repeated_threshold = max(8, len(lines) // 15)
     repeated_lines = {
         line for line, count in freq.items()
-        if count >= repeated_threshold
+        if count >= repeated_threshold and not _is_legal_content_line(line)
     }
 
     filtered_lines: list[str] = []
@@ -272,10 +332,13 @@ def _limpar_texto(texto: str) -> str:
         if line in repeated_lines:
             continue
 
-        # Remove long duplicate runs (same line repeated many times consecutively)
+        line_is_legal = _is_legal_content_line(line)
+
+        # Remove long duplicate runs (same line repeated many times consecutively),
+        # but preserve legal-content lines that can legitimately repeat.
         if line and line == last_kept:
             duplicate_run += 1
-            if duplicate_run >= 2:
+            if duplicate_run >= 2 and not line_is_legal:
                 continue
         else:
             duplicate_run = 0
@@ -325,6 +388,15 @@ def _calcular_score_qualidade(texto: str) -> float:
     unique_ratio = len(set(lines)) / len(lines)
     score = (0.45 * alnum_ratio) + (0.4 * useful_ratio) + (0.15 * unique_ratio)
     return round(max(0.0, min(1.0, score)), 3)
+
+
+def _calcular_noise_ratio(texto: str) -> float:
+    """Estimate line-noise ratio in [0, 1] for one extracted page/text."""
+    lines = [line.strip() for line in str(texto or "").splitlines() if line.strip()]
+    if not lines:
+        return 1.0
+    noise_lines = sum(1 for line in lines if _is_noise_line(line))
+    return round(max(0.0, min(1.0, noise_lines / len(lines))), 3)
 
 
 def _deve_tentar_ocr(resultado: ExtractionResult) -> bool:
@@ -428,6 +500,11 @@ def extrair_texto(filepath: str) -> ExtractionResult:
     # Clean the extracted text and log reduction
     if not resultado.raw_text_by_page:
         resultado.raw_text_by_page = [resultado.texto] if resultado.texto else []
+    if not resultado.raw_page_hashes:
+        resultado.raw_page_hashes = [
+            sha256((page_text or "").encode("utf-8")).hexdigest()
+            for page_text in resultado.raw_text_by_page
+        ]
 
     chars_before = len(resultado.texto)
     resultado.texto = _limpar_texto(resultado.texto)
@@ -435,6 +512,30 @@ def extrair_texto(filepath: str) -> ExtractionResult:
     resultado.clean_text_by_page = [
         _limpar_texto(page_text) for page_text in resultado.raw_text_by_page
     ]
+    resultado.clean_page_hashes = [
+        sha256((page_text or "").encode("utf-8")).hexdigest()
+        for page_text in resultado.clean_text_by_page
+    ]
+    resultado.quality_score_by_page = [
+        _calcular_score_qualidade(page_text)
+        for page_text in resultado.clean_text_by_page
+    ]
+    resultado.noise_ratio_by_page = [
+        _calcular_noise_ratio(page_text)
+        for page_text in resultado.raw_text_by_page
+    ]
+    resultado.noise_ratio = (
+        round(mean(resultado.noise_ratio_by_page), 3)
+        if resultado.noise_ratio_by_page
+        else 1.0
+    )
+    if not resultado.ocr_confidence_by_page:
+        resultado.ocr_confidence_by_page = [0.0 for _ in resultado.raw_text_by_page]
+    resultado.ocr_confidence = (
+        round(mean(resultado.ocr_confidence_by_page), 3)
+        if resultado.ocr_confidence_by_page
+        else 0.0
+    )
     resultado.quality_score = _calcular_score_qualidade(resultado.texto)
     chars_after = resultado.num_caracteres
     reduction = (chars_before - chars_after) / chars_before * 100 if chars_before > 0 else 0.0

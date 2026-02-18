@@ -68,16 +68,16 @@
 
 ## 1) Extração de PDF (P0)
 
-- [ ] **PDF-001** Implementar pipeline de extração em camadas em `src/pdf_processor.py`:
-- [ ] `PyMuPDF` -> `pdfplumber` -> `OCR`.
+- [x] **PDF-001** Implementar pipeline de extração em camadas em `src/pdf_processor.py`:
+- [x] `PyMuPDF` -> `pdfplumber` -> `OCR`.
 - [x] **PDF-002** Adicionar OCR automático para PDFs escaneados (Tesseract/PaddleOCR), com feature flag.
 - [x] **PDF-003** Persistir texto bruto por página antes da limpeza (`raw_text_by_page`).
 - [x] **PDF-004** Persistir texto limpo por página (`clean_text_by_page`), sem perder mapeamento de origem.
-- [ ] **PDF-005** Incluir score de qualidade por página e por documento (`ocr_confidence`, `noise_ratio`).
-- [ ] **PDF-006** Revisar limpeza para não remover conteúdo jurídico válido em linhas curtas repetidas.
-- [ ] **PDF-007** Salvar hashes por página para detectar variações/reprocessamento.
+- [x] **PDF-005** Incluir score de qualidade por página e por documento (`ocr_confidence`, `noise_ratio`).
+- [x] **PDF-006** Revisar limpeza para não remover conteúdo jurídico válido em linhas curtas repetidas.
+- [x] **PDF-007** Salvar hashes por página para detectar variações/reprocessamento.
 - [x] **PDF-008** Expor no resultado de extração: engine, páginas com fallback, páginas OCR e confidence.
-- [ ] **PDF-009** Bloquear continuidade quando qualidade da extração for insuficiente (threshold configurável).
+- [x] **PDF-009** Bloquear continuidade quando qualidade da extração for insuficiente (threshold configurável).
 
 ## 2) Classificação de Documento (P0)
 
@@ -168,7 +168,7 @@
 
 - [x] **TST-001** Criar dataset ouro versionado em `tests/fixtures/golden/`.
 - [x] **TST-002** Adicionar testes de contrato de schema (Etapa 1/2/3).
-- [ ] **TST-003** Adicionar testes de regressão com PDFs escaneados reais.
+- [x] **TST-003** Adicionar testes de regressão com PDFs escaneados reais.
 - [x] **TST-004** Adicionar testes de mutação em regras críticas de decisão.
 - [x] **TST-005** Adicionar testes property-based para parsers e normalização.
 - [x] **TST-006** Adicionar testes E2E com validação de evidência obrigatória.

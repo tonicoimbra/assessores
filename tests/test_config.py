@@ -2,6 +2,9 @@
 
 from src.config import (
     BASE_DIR,
+    ENABLE_EXTRACTION_QUALITY_GATE,
+    EXTRACTION_MAX_NOISE_RATIO,
+    EXTRACTION_MIN_QUALITY_SCORE,
     LOG_LEVEL,
     MAX_TOKENS,
     OPENAI_MODEL,
@@ -27,6 +30,11 @@ class TestConfigDefaults:
 
     def test_log_level_has_default(self) -> None:
         assert LOG_LEVEL in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+
+    def test_extraction_quality_gate_defaults(self) -> None:
+        assert isinstance(ENABLE_EXTRACTION_QUALITY_GATE, bool)
+        assert 0.0 <= EXTRACTION_MIN_QUALITY_SCORE <= 1.0
+        assert 0.0 <= EXTRACTION_MAX_NOISE_RATIO <= 1.0
 
 
 class TestConfigPaths:

@@ -34,6 +34,7 @@ from src.pipeline import (
     get_friendly_error,
     handle_pipeline_error,
 )
+from src.pdf_processor import ExtractionResult
 from src.state_manager import restaurar_estado, salvar_estado
 
 
@@ -421,6 +422,42 @@ class TestFailClosedValidation:
         msg = str(exc.value)
         assert msg.startswith("MOTIVO_BLOQUEIO[E1_INCONCLUSIVA]")
         assert "Campo obrigatório ausente: recorrente" in msg
+
+    def test_pipeline_blocks_when_extraction_quality_is_insufficient(self, monkeypatch) -> None:
+        monkeypatch.setattr("src.pipeline.ENABLE_EXTRACTION_QUALITY_GATE", True)
+        monkeypatch.setattr("src.pipeline.EXTRACTION_MIN_QUALITY_SCORE", 0.5)
+        monkeypatch.setattr("src.pipeline.EXTRACTION_MAX_NOISE_RATIO", 0.4)
+
+        monkeypatch.setattr(
+            "src.pipeline.extrair_texto",
+            lambda _path: ExtractionResult(
+                texto="",
+                num_paginas=1,
+                num_caracteres=0,
+                engine_usada="pdfplumber",
+                raw_text_by_page=["Página 1 de 1"],
+                clean_text_by_page=[""],
+                quality_score=0.1,
+                noise_ratio=1.0,
+            ),
+        )
+
+        def _should_not_classify(*args, **kwargs):
+            raise AssertionError("Classificação não deve iniciar quando extração está abaixo do threshold")
+
+        monkeypatch.setattr("src.pipeline.classificar_documentos", _should_not_classify)
+
+        pipeline = PipelineAdmissibilidade()
+        with pytest.raises(PipelineValidationError) as exc:
+            pipeline.executar(
+                pdfs=["/tmp/recurso.pdf", "/tmp/acordao.pdf"],
+                processo_id="test_pdf_quality_gate",
+                continuar=False,
+            )
+
+        msg = str(exc.value)
+        assert msg.startswith("MOTIVO_BLOQUEIO[PDF_QUALIDADE_BAIXA]")
+        assert "quality_score" in msg or "noise_ratio" in msg
 
     def test_validar_etapa2_detects_missing_themes(self) -> None:
         erros = _validar_etapa2(ResultadoEtapa2(temas=[]))

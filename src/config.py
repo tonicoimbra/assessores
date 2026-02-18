@@ -55,6 +55,15 @@ OCR_DENOISE_ENABLED: bool = os.getenv("OCR_DENOISE_ENABLED", "true").lower() == 
 OCR_BINARIZATION_ENABLED: bool = os.getenv("OCR_BINARIZATION_ENABLED", "true").lower() == "true"
 OCR_BINARIZATION_THRESHOLD: int = int(os.getenv("OCR_BINARIZATION_THRESHOLD", "160"))
 OCR_DENOISE_MEDIAN_SIZE: int = int(os.getenv("OCR_DENOISE_MEDIAN_SIZE", "3"))
+ENABLE_EXTRACTION_QUALITY_GATE: bool = (
+    os.getenv("ENABLE_EXTRACTION_QUALITY_GATE", "true").lower() == "true"
+)
+EXTRACTION_MIN_QUALITY_SCORE: float = float(
+    os.getenv("EXTRACTION_MIN_QUALITY_SCORE", "0.2")
+)
+EXTRACTION_MAX_NOISE_RATIO: float = float(
+    os.getenv("EXTRACTION_MAX_NOISE_RATIO", "0.95")
+)
 
 # Context limits (GPT-4o = 128k tokens)
 CONTEXT_LIMIT_TOKENS: int = 128_000

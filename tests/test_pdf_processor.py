@@ -45,8 +45,27 @@ class TestExtrairTexto:
     def test_exposes_quality_and_page_mappings(self, sample_recurso_path: str) -> None:
         resultado = extrair_texto(sample_recurso_path)
         assert 0.0 <= resultado.quality_score <= 1.0
+        assert 0.0 <= resultado.noise_ratio <= 1.0
+        assert 0.0 <= resultado.ocr_confidence <= 1.0
         assert len(resultado.raw_text_by_page) == resultado.num_paginas
         assert len(resultado.clean_text_by_page) == resultado.num_paginas
+        assert len(resultado.raw_page_hashes) == resultado.num_paginas
+        assert len(resultado.clean_page_hashes) == resultado.num_paginas
+        assert len(resultado.quality_score_by_page) == resultado.num_paginas
+        assert len(resultado.noise_ratio_by_page) == resultado.num_paginas
+        assert len(resultado.ocr_confidence_by_page) == resultado.num_paginas
+        assert all(len(h) == 64 for h in resultado.raw_page_hashes)
+        assert all(len(h) == 64 for h in resultado.clean_page_hashes)
+        assert all(0.0 <= s <= 1.0 for s in resultado.quality_score_by_page)
+        assert all(0.0 <= s <= 1.0 for s in resultado.noise_ratio_by_page)
+        assert all(0.0 <= s <= 1.0 for s in resultado.ocr_confidence_by_page)
+
+    def test_page_hashes_are_deterministic_for_same_file(self, sample_recurso_path: str) -> None:
+        r1 = extrair_texto(sample_recurso_path)
+        r2 = extrair_texto(sample_recurso_path)
+
+        assert r1.raw_page_hashes == r2.raw_page_hashes
+        assert r1.clean_page_hashes == r2.clean_page_hashes
 
 
 class TestFallbackPdfplumber:
@@ -223,6 +242,26 @@ class TestLimpezaTexto:
     def test_strips_result(self) -> None:
         resultado = _limpar_texto("  text  ")
         assert resultado == "text"
+
+    def test_preserves_repeated_short_legal_lines(self) -> None:
+        texto = "\n".join(
+            ["Art. 489 do CPC"] * 12
+            + ["Súmula 7 do STJ"] * 12
+        )
+        resultado = _limpar_texto(texto)
+        assert resultado.count("Art. 489 do CPC") >= 10
+        assert resultado.count("Súmula 7 do STJ") >= 10
+
+    def test_removes_repeated_short_noise_lines(self) -> None:
+        texto = "\n".join(
+            ["Página 1 de 10"] * 20
+            + ["Documento assinado digitalmente"] * 20
+            + ["Conteúdo útil do recurso"] * 2
+        )
+        resultado = _limpar_texto(texto)
+        assert "Página 1 de 10" not in resultado
+        assert "Documento assinado digitalmente" not in resultado
+        assert "Conteúdo útil do recurso" in resultado
 
 
 class TestExtrairMultiplosPdfs:
