@@ -53,6 +53,12 @@ CHEAP_VERIFIER_ACORDAO_PATTERNS: list[str] = [
 
 # Confidence threshold for heuristic classification
 HEURISTIC_CONFIDENCE_THRESHOLD: float = 0.7
+COMPOSITE_WEIGHT_HEURISTIC: float = 0.55
+COMPOSITE_WEIGHT_LLM: float = 0.35
+COMPOSITE_WEIGHT_VERIFIER: float = 0.10
+COMPOSITE_MIN_CONFIDENCE: float = 0.55
+COMPOSITE_MIN_MARGIN: float = 0.12
+COMPOSITE_STRONG_CONFLICT_CONFIDENCE: float = 0.75
 
 # LLM classification prompt
 CLASSIFICATION_PROMPT: str = """Você é um classificador de documentos jurídicos.
@@ -84,6 +90,191 @@ class ClassificationResult:
     verifier_confidence: float = 0.0
     verifier_ok: bool = True
     verifier_reason: str = ""
+    composite_score_recurso: float = 0.0
+    composite_score_acordao: float = 0.0
+    decision_margin: float = 0.0
+    consistency_score: float = 1.0
+    consistency_flags: list[str] | None = None
+
+
+def _clamp01(value: float) -> float:
+    """Clamp floating point value into [0, 1]."""
+    return max(0.0, min(1.0, float(value)))
+
+
+def _normalizar_scores_heuristicos(
+    resultado_heuristica: ClassificationResult,
+) -> tuple[float, float]:
+    """Normalize heuristic class scores, including mocked/legacy payloads."""
+    score_recurso = _clamp01(resultado_heuristica.heuristic_score_recurso)
+    score_acordao = _clamp01(resultado_heuristica.heuristic_score_acordao)
+
+    if score_recurso == score_acordao and resultado_heuristica.tipo != TipoDocumento.DESCONHECIDO:
+        conf = _clamp01(resultado_heuristica.confianca)
+        if resultado_heuristica.tipo == TipoDocumento.RECURSO:
+            score_recurso = conf
+            score_acordao = 1.0 - conf
+        elif resultado_heuristica.tipo == TipoDocumento.ACORDAO:
+            score_acordao = conf
+            score_recurso = 1.0 - conf
+
+    if resultado_heuristica.tipo == TipoDocumento.DESCONHECIDO:
+        # Heurística inconclusiva não deve neutralizar totalmente o sinal do LLM.
+        score_recurso = max(0.5, score_recurso)
+        score_acordao = max(0.5, score_acordao)
+
+    return score_recurso, score_acordao
+
+
+def _score_binario_por_tipo(
+    tipo_predito: TipoDocumento,
+    confianca: float,
+    tipo_alvo: TipoDocumento,
+) -> float:
+    """Convert class prediction into deterministic score for one target label."""
+    conf = _clamp01(confianca)
+    if tipo_predito == TipoDocumento.DESCONHECIDO:
+        return 0.5
+    if tipo_predito == tipo_alvo:
+        return conf
+    return 1.0 - conf
+
+
+def _aplicar_score_composto(
+    resultado_heuristica: ClassificationResult,
+    resultado_base: ClassificationResult,
+    resultado_llm: ClassificationResult | None,
+) -> ClassificationResult:
+    """Apply deterministic composed scoring from heuristics, LLM and consistency rules."""
+    heur_score_recurso, heur_score_acordao = _normalizar_scores_heuristicos(resultado_heuristica)
+    heuristic_weight = (
+        COMPOSITE_WEIGHT_HEURISTIC
+        if resultado_heuristica.tipo != TipoDocumento.DESCONHECIDO
+        else 0.25
+    )
+
+    componentes_recurso: list[tuple[float, float]] = [(heuristic_weight, heur_score_recurso)]
+    componentes_acordao: list[tuple[float, float]] = [(heuristic_weight, heur_score_acordao)]
+
+    if resultado_llm is not None:
+        componentes_recurso.append(
+            (
+                COMPOSITE_WEIGHT_LLM,
+                _score_binario_por_tipo(
+                    resultado_llm.tipo,
+                    resultado_llm.confianca,
+                    TipoDocumento.RECURSO,
+                ),
+            )
+        )
+        componentes_acordao.append(
+            (
+                COMPOSITE_WEIGHT_LLM,
+                _score_binario_por_tipo(
+                    resultado_llm.tipo,
+                    resultado_llm.confianca,
+                    TipoDocumento.ACORDAO,
+                ),
+            )
+        )
+
+    if (
+        resultado_base.verifier_tipo is not None
+        and resultado_base.verifier_tipo != TipoDocumento.DESCONHECIDO
+    ):
+        componentes_recurso.append(
+            (
+                COMPOSITE_WEIGHT_VERIFIER,
+                _score_binario_por_tipo(
+                    resultado_base.verifier_tipo,
+                    resultado_base.verifier_confidence,
+                    TipoDocumento.RECURSO,
+                ),
+            )
+        )
+        componentes_acordao.append(
+            (
+                COMPOSITE_WEIGHT_VERIFIER,
+                _score_binario_por_tipo(
+                    resultado_base.verifier_tipo,
+                    resultado_base.verifier_confidence,
+                    TipoDocumento.ACORDAO,
+                ),
+            )
+        )
+
+    total_peso = max(sum(peso for peso, _ in componentes_recurso), 1e-9)
+    score_composto_recurso = round(
+        sum(peso * score for peso, score in componentes_recurso) / total_peso,
+        3,
+    )
+    score_composto_acordao = round(
+        sum(peso * score for peso, score in componentes_acordao) / total_peso,
+        3,
+    )
+    margem_decisao = round(abs(score_composto_recurso - score_composto_acordao), 3)
+
+    tipo_vencedor = (
+        TipoDocumento.RECURSO
+        if score_composto_recurso >= score_composto_acordao
+        else TipoDocumento.ACORDAO
+    )
+    confianca_vencedor = (
+        score_composto_recurso
+        if tipo_vencedor == TipoDocumento.RECURSO
+        else score_composto_acordao
+    )
+
+    consistency_flags: list[str] = []
+    checks = 0
+    checks_ok = 0
+
+    if (
+        resultado_llm is not None
+        and resultado_llm.tipo != TipoDocumento.DESCONHECIDO
+        and resultado_heuristica.tipo != TipoDocumento.DESCONHECIDO
+    ):
+        checks += 1
+        if resultado_llm.tipo == resultado_heuristica.tipo:
+            checks_ok += 1
+        elif (
+            resultado_llm.confianca >= COMPOSITE_STRONG_CONFLICT_CONFIDENCE
+            and resultado_heuristica.confianca >= COMPOSITE_STRONG_CONFLICT_CONFIDENCE
+        ):
+            consistency_flags.append("strong_heuristic_llm_conflict")
+
+    if (
+        resultado_base.verifier_tipo is not None
+        and resultado_base.verifier_tipo != TipoDocumento.DESCONHECIDO
+    ):
+        checks += 1
+        if resultado_base.verifier_tipo == tipo_vencedor:
+            checks_ok += 1
+
+    consistency_score = round(checks_ok / checks, 3) if checks else 1.0
+
+    if not resultado_base.verifier_ok:
+        consistency_flags.append("crosscheck_conflict")
+    if confianca_vencedor < COMPOSITE_MIN_CONFIDENCE:
+        consistency_flags.append("low_composite_confidence")
+    if margem_decisao < COMPOSITE_MIN_MARGIN:
+        consistency_flags.append("low_composite_margin")
+
+    if consistency_flags:
+        resultado_base.tipo = TipoDocumento.DESCONHECIDO
+        resultado_base.confianca = min(_clamp01(confianca_vencedor), 0.49)
+    else:
+        resultado_base.tipo = tipo_vencedor
+        resultado_base.confianca = _clamp01(confianca_vencedor)
+
+    if "score_composto" not in resultado_base.metodo:
+        resultado_base.metodo = f"{resultado_base.metodo}+score_composto".strip("+")
+    resultado_base.composite_score_recurso = score_composto_recurso
+    resultado_base.composite_score_acordao = score_composto_acordao
+    resultado_base.decision_margin = margem_decisao
+    resultado_base.consistency_score = consistency_score
+    resultado_base.consistency_flags = consistency_flags
+    return resultado_base
 
 
 def _calcular_score_heuristico(
@@ -311,14 +502,17 @@ def classificar_documento(texto: str) -> ClassificationResult:
     """
     # Try heuristics first
     resultado_heuristica = _classificar_por_heuristica(texto)
+    resultado_llm: ClassificationResult | None = None
+    resultado_base: ClassificationResult
 
     if resultado_heuristica.tipo != TipoDocumento.DESCONHECIDO:
-        resultado_heuristica = _aplicar_validacao_cruzada_barata(texto, resultado_heuristica)
+        resultado_base = _aplicar_validacao_cruzada_barata(texto, resultado_heuristica)
+        resultado_final = _aplicar_score_composto(resultado_heuristica, resultado_base, None)
         logger.info(
             "📋 Classificação (heurística): %s (confiança: %.2f)",
-            resultado_heuristica.tipo.value, resultado_heuristica.confianca,
+            resultado_final.tipo.value, resultado_final.confianca,
         )
-        return resultado_heuristica
+        return resultado_final
 
     # Fallback to LLM
     logger.info(
@@ -331,13 +525,14 @@ def classificar_documento(texto: str) -> ClassificationResult:
     resultado_llm.matched_recurso_patterns = resultado_heuristica.matched_recurso_patterns
     resultado_llm.matched_acordao_patterns = resultado_heuristica.matched_acordao_patterns
     resultado_llm.evidence_snippets = resultado_heuristica.evidence_snippets
-    resultado_llm = _aplicar_validacao_cruzada_barata(texto, resultado_llm)
+    resultado_base = _aplicar_validacao_cruzada_barata(texto, resultado_llm)
+    resultado_final = _aplicar_score_composto(resultado_heuristica, resultado_base, resultado_llm)
 
     logger.info(
         "📋 Classificação (LLM): %s (confiança: %.2f)",
-        resultado_llm.tipo.value, resultado_llm.confianca,
+        resultado_final.tipo.value, resultado_final.confianca,
     )
-    return resultado_llm
+    return resultado_final
 
 
 def classificar_documentos(
@@ -376,16 +571,24 @@ def classificar_documentos(
             verifier_confidence=resultado.verifier_confidence,
             verifier_ok=resultado.verifier_ok,
             verifier_reason=resultado.verifier_reason,
+            composite_score_recurso=resultado.composite_score_recurso,
+            composite_score_acordao=resultado.composite_score_acordao,
+            decision_margin=resultado.decision_margin,
+            consistency_score=resultado.consistency_score,
+            consistency_flags=resultado.consistency_flags or [],
         )
         logger.info(
             "🧾 Classificação auditada — arquivo=%s tipo=%s método=%s conf=%.2f "
-            "score_r=%.2f score_a=%.2f evidências=%d",
+            "score_r=%.2f score_a=%.2f comp_r=%.2f comp_a=%.2f margem=%.2f evidências=%d",
             doc.filepath,
             doc.tipo.value,
             doc.classification_audit.method,
             doc.classification_audit.confidence,
             doc.classification_audit.heuristic_score_recurso,
             doc.classification_audit.heuristic_score_acordao,
+            doc.classification_audit.composite_score_recurso,
+            doc.classification_audit.composite_score_acordao,
+            doc.classification_audit.decision_margin,
             len(doc.classification_audit.evidence_snippets),
         )
 

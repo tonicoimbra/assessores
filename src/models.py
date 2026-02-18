@@ -40,6 +40,11 @@ class ClassificationAudit(BaseModel):
     verifier_confidence: float = 0.0
     verifier_ok: bool = True
     verifier_reason: str = ""
+    composite_score_recurso: float = 0.0
+    composite_score_acordao: float = 0.0
+    decision_margin: float = 0.0
+    consistency_score: float = 1.0
+    consistency_flags: list[str] = Field(default_factory=list)
 
 
 # --- 1.3.1 DocumentoEntrada ---

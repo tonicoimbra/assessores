@@ -81,8 +81,8 @@
 
 ## 2) Classificação de Documento (P0)
 
-- [ ] **CLS-001** Tornar a classificação determinística com score composto:
-- [ ] heurística + LLM + regras de consistência.
+- [x] **CLS-001** Tornar a classificação determinística com score composto:
+- [x] heurística + LLM + regras de consistência.
 - [x] **CLS-002** Exigir invariantes de entrada no pipeline:
 - [x] exatamente 1 `RECURSO`.
 - [x] >= 1 `ACORDAO`.

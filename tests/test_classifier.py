@@ -114,7 +114,8 @@ class TestFallbackLLM:
 
         mock_llm.assert_called_once()
         assert resultado.tipo == TipoDocumento.RECURSO
-        assert resultado.metodo == "llm"
+        assert "llm" in resultado.metodo
+        assert "score_composto" in resultado.metodo
 
     def test_does_not_call_llm_when_heuristic_confident(self) -> None:
         with patch("src.classifier._classificar_por_llm") as mock_llm:
@@ -123,7 +124,8 @@ class TestFallbackLLM:
             )
             mock_llm.assert_not_called()
             assert resultado.tipo == TipoDocumento.RECURSO
-            assert resultado.metodo == "heuristica"
+            assert "heuristica" in resultado.metodo
+            assert "score_composto" in resultado.metodo
 
     @patch("src.classifier._classificar_por_heuristica")
     def test_crosscheck_downgrades_conflicting_primary_classification(self, mock_heuristica) -> None:
@@ -143,6 +145,22 @@ class TestFallbackLLM:
         assert "crosscheck" in resultado.metodo
         assert resultado.verifier_ok is False
         assert resultado.verifier_tipo == TipoDocumento.ACORDAO
+
+    @patch("src.classifier._classificar_por_heuristica")
+    def test_composite_blocks_low_margin_decision(self, mock_heuristica) -> None:
+        mock_heuristica.return_value = ClassificationResult(
+            tipo=TipoDocumento.RECURSO,
+            confianca=0.52,
+            metodo="heuristica",
+            heuristic_score_recurso=0.52,
+            heuristic_score_acordao=0.48,
+        )
+        resultado = classificar_documento("texto curto sem outros sinais")
+
+        assert resultado.tipo == TipoDocumento.DESCONHECIDO
+        assert resultado.confianca <= 0.49
+        assert resultado.consistency_flags is not None
+        assert "low_composite_margin" in resultado.consistency_flags
 
 
 # --- Classification of multiple documents ---
@@ -167,8 +185,17 @@ class TestClassificarDocumentos:
         assert result[1].tipo == TipoDocumento.ACORDAO
         assert result[0].classification_audit is not None
         assert result[1].classification_audit is not None
-        assert result[0].classification_audit.method in {"heuristica", "llm"}
-        assert result[1].classification_audit.method in {"heuristica", "llm"}
+        assert (
+            "heuristica" in result[0].classification_audit.method
+            or "llm" in result[0].classification_audit.method
+        )
+        assert (
+            "heuristica" in result[1].classification_audit.method
+            or "llm" in result[1].classification_audit.method
+        )
+        assert 0.0 <= result[0].classification_audit.composite_score_recurso <= 1.0
+        assert 0.0 <= result[0].classification_audit.composite_score_acordao <= 1.0
+        assert 0.0 <= result[0].classification_audit.decision_margin <= 1.0
 
     def test_persists_classification_evidence(self) -> None:
         docs = [
@@ -180,12 +207,16 @@ class TestClassificarDocumentos:
         result = classificar_documentos(docs)
         audit = result[0].classification_audit
         assert audit is not None
-        assert audit.method == "heuristica"
+        assert "heuristica" in audit.method
         assert audit.heuristic_score_recurso >= 0.7
         assert len(audit.matched_recurso_patterns) > 0
         assert len(audit.evidence_snippets) > 0
         assert audit.verifier_ok is True
         assert audit.verifier_tipo in {"RECURSO", "DESCONHECIDO"}
+        assert 0.0 <= audit.composite_score_recurso <= 1.0
+        assert 0.0 <= audit.composite_score_acordao <= 1.0
+        assert 0.0 <= audit.consistency_score <= 1.0
+        assert "score_composto" in audit.method
 
     def test_warns_when_no_recurso(self, caplog) -> None:
         docs = [
