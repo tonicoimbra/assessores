@@ -188,10 +188,10 @@
 
 ## 12) Segurança e Conformidade (P1)
 
-- [ ] **SEC-001** Sanitizar logs para remover dados sensíveis de peças processuais.
-- [ ] **SEC-002** Implementar política de retenção para `outputs/` e checkpoints.
-- [ ] **SEC-003** Adicionar controle de acesso para download de arquivos na web.
-- [ ] **SEC-004** Revisar `.env`/segredos e endurecer validações de ambiente.
+- [x] **SEC-001** Sanitizar logs para remover dados sensíveis de peças processuais.
+- [x] **SEC-002** Implementar política de retenção para `outputs/` e checkpoints.
+- [x] **SEC-003** Adicionar controle de acesso para download de arquivos na web.
+- [x] **SEC-004** Revisar `.env`/segredos e endurecer validações de ambiente.
 
 ## 13) Roadmap de Execução
 

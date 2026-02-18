@@ -8,16 +8,26 @@ from src.config import (
     ENABLE_CLASSIFICATION_MANUAL_REVIEW,
     ENABLE_CONTEXT_COVERAGE_GATE,
     ENABLE_EXTRACTION_QUALITY_GATE,
+    ENABLE_RETENTION_POLICY,
+    ENABLE_WEB_DOWNLOAD_ACCESS_CONTROL,
     EXTRACTION_MAX_NOISE_RATIO,
     EXTRACTION_MIN_QUALITY_SCORE,
     LOG_LEVEL,
+    MAX_LOG_MESSAGE_CHARS,
     MAX_TOKENS,
     OPENAI_MODEL,
     OUTPUTS_DIR,
     PROMPTS_DIR,
+    RETENTION_CHECKPOINT_DAYS,
+    RETENTION_DEAD_LETTER_DAYS,
+    RETENTION_OUTPUT_DAYS,
+    RETENTION_WEB_UPLOAD_DAYS,
     TEMPERATURE,
+    WEB_DOWNLOAD_TOKEN_TTL_SECONDS,
+    sanitize_log_text,
     setup_logging,
     validate_api_key,
+    validate_environment_settings,
 )
 
 
@@ -49,6 +59,33 @@ class TestConfigDefaults:
     def test_context_coverage_gate_defaults(self) -> None:
         assert isinstance(ENABLE_CONTEXT_COVERAGE_GATE, bool)
         assert 0.0 <= CONTEXT_MIN_COVERAGE_RATIO <= 1.0
+
+    def test_retention_defaults(self) -> None:
+        assert isinstance(ENABLE_RETENTION_POLICY, bool)
+        assert RETENTION_OUTPUT_DAYS >= 1
+        assert RETENTION_CHECKPOINT_DAYS >= 1
+        assert RETENTION_WEB_UPLOAD_DAYS >= 1
+        assert RETENTION_DEAD_LETTER_DAYS >= 1
+
+    def test_web_download_access_control_defaults(self) -> None:
+        assert isinstance(ENABLE_WEB_DOWNLOAD_ACCESS_CONTROL, bool)
+        assert WEB_DOWNLOAD_TOKEN_TTL_SECONDS >= 60
+
+    def test_log_sanitization_masks_secrets(self) -> None:
+        msg = sanitize_log_text("token sk-test_1234567890 and Bearer abcdefghijklmnopqrst")
+        assert "sk-test_1234567890" not in msg
+        assert "abcdefghijklmnopqrst" not in msg
+        assert "[REDACTED_" in msg
+
+    def test_log_sanitization_respects_max_length(self) -> None:
+        raw = "x" * (MAX_LOG_MESSAGE_CHARS + 50)
+        sanitized = sanitize_log_text(raw)
+        assert len(sanitized) <= MAX_LOG_MESSAGE_CHARS + len(" ... [TRUNCATED]")
+
+    def test_validate_environment_settings_detects_invalid_provider(self, monkeypatch) -> None:
+        monkeypatch.setattr("src.config.LLM_PROVIDER", "invalid-provider")
+        erros = validate_environment_settings()
+        assert any("LLM_PROVIDER inválido" in e for e in erros)
 
 
 class TestConfigPaths:

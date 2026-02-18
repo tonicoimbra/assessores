@@ -28,6 +28,7 @@ from src.config import (
     PROMPT_PROFILE,
     CLASSIFICATION_MANUAL_REVIEW_CONFIDENCE_THRESHOLD,
     CLASSIFICATION_MANUAL_REVIEW_MARGIN_THRESHOLD,
+    SensitiveDataFilter,
     ENABLE_CONTEXT_COVERAGE_GATE,
     CONTEXT_MIN_COVERAGE_RATIO,
     REQUIRE_EXACTLY_ONE_RECURSO,
@@ -65,6 +66,7 @@ from src.output_formatter import (
 )
 from src.pdf_processor import extrair_texto
 from src.prompt_loader import ensure_prompt_contract, get_pipeline_prompt_signature
+from src.retention_manager import aplicar_politica_retencao
 from src.state_manager import limpar_checkpoints, restaurar_estado, salvar_estado
 
 logger = logging.getLogger("assessor_ai")
@@ -472,6 +474,7 @@ def _setup_file_logging() -> Path:
         "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     ))
+    file_handler.addFilter(SensitiveDataFilter())
 
     root_logger = logging.getLogger("assessor_ai")
     if not any(isinstance(h, logging.FileHandler) for h in root_logger.handlers):
@@ -1488,6 +1491,11 @@ class PipelineAdmissibilidade:
         # Save final state and cleanup
         salvar_estado(estado, processo_id)
         limpar_checkpoints(processo_id)
+        try:
+            retention_summary = aplicar_politica_retencao()
+            self.metricas["retencao"] = retention_summary
+        except Exception:
+            logger.warning("Falha ao aplicar política de retenção automática.", exc_info=True)
 
         logger.info(
             "✅ Pipeline concluído em %.1fs — %d tokens (~$%.4f)",

@@ -2,8 +2,10 @@
 
 import logging
 import os
+import re
 import sys
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -143,6 +145,107 @@ MAX_TOKENS_ETAPA3: int = int(os.getenv("MAX_TOKENS_ETAPA3", "3200"))
 
 # Logging
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
+MAX_LOG_MESSAGE_CHARS: int = int(os.getenv("MAX_LOG_MESSAGE_CHARS", "1200"))
+
+# Web download access control
+ENABLE_WEB_DOWNLOAD_ACCESS_CONTROL: bool = (
+    os.getenv("ENABLE_WEB_DOWNLOAD_ACCESS_CONTROL", "true").lower() == "true"
+)
+WEB_DOWNLOAD_TOKEN_TTL_SECONDS: int = int(
+    os.getenv("WEB_DOWNLOAD_TOKEN_TTL_SECONDS", "900")
+)
+
+# Data retention policy
+ENABLE_RETENTION_POLICY: bool = (
+    os.getenv("ENABLE_RETENTION_POLICY", "true").lower() == "true"
+)
+RETENTION_OUTPUT_DAYS: int = int(os.getenv("RETENTION_OUTPUT_DAYS", "30"))
+RETENTION_CHECKPOINT_DAYS: int = int(os.getenv("RETENTION_CHECKPOINT_DAYS", "7"))
+RETENTION_WEB_UPLOAD_DAYS: int = int(os.getenv("RETENTION_WEB_UPLOAD_DAYS", "2"))
+RETENTION_DEAD_LETTER_DAYS: int = int(os.getenv("RETENTION_DEAD_LETTER_DAYS", "30"))
+
+_REDACTION_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"sk-or-[A-Za-z0-9_\-]{8,}", re.IGNORECASE), "[REDACTED_OPENROUTER_KEY]"),
+    (re.compile(r"sk-[A-Za-z0-9_\-]{8,}", re.IGNORECASE), "[REDACTED_OPENAI_KEY]"),
+    (re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._\-]{8,}"), r"\1[REDACTED_TOKEN]"),
+    (re.compile(r"\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b"), "[REDACTED_PROCESSO]"),
+)
+
+
+def sanitize_log_text(text: str) -> str:
+    """Redact sensitive material from log text."""
+    sanitized = str(text or "")
+    for pattern, replacement in _REDACTION_RULES:
+        sanitized = pattern.sub(replacement, sanitized)
+    if MAX_LOG_MESSAGE_CHARS > 0 and len(sanitized) > MAX_LOG_MESSAGE_CHARS:
+        suffix = " ... [TRUNCATED]"
+        keep = max(0, MAX_LOG_MESSAGE_CHARS - len(suffix))
+        sanitized = sanitized[:keep] + suffix
+    return sanitized
+
+
+def _sanitize_log_arg(value: Any) -> Any:
+    if isinstance(value, str):
+        return sanitize_log_text(value)
+    if isinstance(value, dict):
+        return {k: _sanitize_log_arg(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_log_arg(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_sanitize_log_arg(v) for v in value)
+    return value
+
+
+class SensitiveDataFilter(logging.Filter):
+    """Logging filter that redacts sensitive payloads before emission."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            record.msg = sanitize_log_text(str(record.msg))
+            if record.args:
+                if isinstance(record.args, tuple):
+                    record.args = tuple(_sanitize_log_arg(v) for v in record.args)
+                elif isinstance(record.args, dict):
+                    record.args = {k: _sanitize_log_arg(v) for k, v in record.args.items()}
+                else:
+                    record.args = (_sanitize_log_arg(record.args),)
+        except Exception:
+            return True
+        return True
+
+
+def validate_environment_settings() -> list[str]:
+    """Return environment/config validation errors for secure execution."""
+    erros: list[str] = []
+    if LLM_PROVIDER not in {"openai", "openrouter"}:
+        erros.append(f"LLM_PROVIDER inválido: '{LLM_PROVIDER}'. Use 'openai' ou 'openrouter'.")
+    if LLM_TIMEOUT <= 0:
+        erros.append("LLM_TIMEOUT deve ser > 0.")
+    if LLM_MAX_RETRIES < 1:
+        erros.append("LLM_MAX_RETRIES deve ser >= 1.")
+
+    for nome, valor in (
+        ("TOKEN_BUDGET_RATIO", TOKEN_BUDGET_RATIO),
+        ("CONFIDENCE_THRESHOLD_GLOBAL", CONFIDENCE_THRESHOLD_GLOBAL),
+        ("CONFIDENCE_THRESHOLD_FIELD", CONFIDENCE_THRESHOLD_FIELD),
+        ("CONFIDENCE_THRESHOLD_THEME", CONFIDENCE_THRESHOLD_THEME),
+    ):
+        if not (0.0 <= float(valor) <= 1.0):
+            erros.append(f"{nome} deve estar entre 0 e 1.")
+
+    if ENABLE_WEB_DOWNLOAD_ACCESS_CONTROL and WEB_DOWNLOAD_TOKEN_TTL_SECONDS < 60:
+        erros.append("WEB_DOWNLOAD_TOKEN_TTL_SECONDS deve ser >= 60 quando controle de download está ativo.")
+
+    for nome, valor in (
+        ("RETENTION_OUTPUT_DAYS", RETENTION_OUTPUT_DAYS),
+        ("RETENTION_CHECKPOINT_DAYS", RETENTION_CHECKPOINT_DAYS),
+        ("RETENTION_WEB_UPLOAD_DAYS", RETENTION_WEB_UPLOAD_DAYS),
+        ("RETENTION_DEAD_LETTER_DAYS", RETENTION_DEAD_LETTER_DAYS),
+    ):
+        if int(valor) < 1:
+            erros.append(f"{nome} deve ser >= 1.")
+
+    return erros
 
 
 def setup_logging() -> logging.Logger:
@@ -158,6 +261,7 @@ def setup_logging() -> logging.Logger:
             datefmt="%Y-%m-%d %H:%M:%S",
         )
         handler.setFormatter(formatter)
+        handler.addFilter(SensitiveDataFilter())
         logger.addHandler(handler)
 
     return logger
@@ -165,6 +269,13 @@ def setup_logging() -> logging.Logger:
 
 def validate_api_key() -> None:
     """Validate that the correct API key is set based on provider. Exit with clear message if missing."""
+    erros_env = validate_environment_settings()
+    if erros_env:
+        print("\n❌ ERRO de configuração de ambiente:")
+        for erro in erros_env:
+            print(f"  - {erro}")
+        sys.exit(1)
+
     if LLM_PROVIDER == "openrouter":
         if not OPENROUTER_API_KEY:
             print(

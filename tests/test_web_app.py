@@ -25,6 +25,9 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(web_app, "LLM_PROVIDER", "openai")
     monkeypatch.setattr(web_app, "OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(web_app, "OPENROUTER_API_KEY", "")
+    monkeypatch.setattr(web_app, "ENABLE_WEB_DOWNLOAD_ACCESS_CONTROL", True)
+    monkeypatch.setattr(web_app, "WEB_DOWNLOAD_TOKEN_TTL_SECONDS", 600)
+    monkeypatch.setattr(web_app, "_DOWNLOAD_TOKENS", {})
 
     web_app.app.config.update(TESTING=True)
     return web_app.app.test_client()
@@ -134,17 +137,18 @@ class TestWebAppRoutes:
 
     def test_download_guards_and_success(self, client, tmp_path: Path) -> None:
         response = client.get("/download")
-        assert response.status_code == 400
+        assert response.status_code == 403
 
         response = client.get("/download?path=/etc/passwd")
         assert response.status_code == 403
 
-        missing_inside = (tmp_path / "outputs" / "missing.md").resolve()
-        response = client.get(f"/download?path={missing_inside}")
-        assert response.status_code == 404
-
         generated = (tmp_path / "outputs" / "resultado.md").resolve()
         generated.write_text("conteudo", encoding="utf-8")
-        response = client.get(f"/download?path={generated}")
+        download_url = web_app._build_download_url(str(generated))
+        response = client.get(download_url)
         assert response.status_code == 200
         assert response.headers.get("Content-Disposition", "").startswith("attachment;")
+
+        # Token is one-time; second attempt must fail.
+        response = client.get(download_url)
+        assert response.status_code == 403

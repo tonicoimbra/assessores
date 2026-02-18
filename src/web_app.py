@@ -6,12 +6,22 @@ import time
 from pathlib import Path
 from uuid import uuid4
 import os
+from typing import Any
 
 from flask import Flask, render_template, request, send_file
 from werkzeug.utils import secure_filename
 
-from src.config import LLM_PROVIDER, OPENAI_API_KEY, OPENROUTER_API_KEY, OUTPUTS_DIR
+from src.config import (
+    LLM_PROVIDER,
+    OPENAI_API_KEY,
+    OPENROUTER_API_KEY,
+    OUTPUTS_DIR,
+    ENABLE_WEB_DOWNLOAD_ACCESS_CONTROL,
+    WEB_DOWNLOAD_TOKEN_TTL_SECONDS,
+    validate_environment_settings,
+)
 from src.pipeline import PipelineAdmissibilidade, handle_pipeline_error
+from src.retention_manager import aplicar_politica_retencao
 
 app = Flask(
     __name__,
@@ -22,6 +32,7 @@ app = Flask(
 
 UPLOADS_DIR = OUTPUTS_DIR / "web_uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+_DOWNLOAD_TOKENS: dict[str, dict[str, Any]] = {}
 
 
 def _get_api_key() -> str:
@@ -48,6 +59,31 @@ def _friendly_error(exc: Exception) -> str:
     return msg
 
 
+def _purge_expired_download_tokens() -> None:
+    """Drop expired download tokens from in-memory store."""
+    now = time.time()
+    expired = [token for token, meta in _DOWNLOAD_TOKENS.items() if float(meta.get("expires_at", 0)) <= now]
+    for token in expired:
+        _DOWNLOAD_TOKENS.pop(token, None)
+
+
+def _build_download_url(path: str) -> str:
+    """Build protected download URL for generated artifact."""
+    normalized = str(path or "").strip()
+    if not normalized:
+        return ""
+    if not ENABLE_WEB_DOWNLOAD_ACCESS_CONTROL:
+        return f"/download?path={normalized}"
+
+    _purge_expired_download_tokens()
+    token = uuid4().hex
+    _DOWNLOAD_TOKENS[token] = {
+        "path": normalized,
+        "expires_at": time.time() + max(60, int(WEB_DOWNLOAD_TOKEN_TTL_SECONDS)),
+    }
+    return f"/download?token={token}"
+
+
 @app.get("/")
 def index():
     """Render upload page."""
@@ -62,6 +98,15 @@ def index():
 @app.post("/processar")
 def processar():
     """Handle upload and execute pipeline."""
+    erros_env = validate_environment_settings()
+    if erros_env:
+        return render_template(
+            "web/index.html",
+            result=None,
+            error="Configuração de ambiente inválida. Revise o .env.",
+            default_model=request.form.get("modelo", _get_default_model()),
+        ), 400
+
     if not _get_api_key():
         provider_name = "OPENROUTER_API_KEY" if LLM_PROVIDER == "openrouter" else "OPENAI_API_KEY"
         return render_template(
@@ -111,6 +156,12 @@ def processar():
         acordao_paths.append(str(path))
 
     try:
+        aplicar_politica_retencao()
+    except Exception:
+        # Retention is best-effort in web mode.
+        pass
+
+    try:
         pipeline = PipelineAdmissibilidade(
             modelo=modelo,
             formato_saida=formato,
@@ -129,6 +180,8 @@ def processar():
             "tempo": metricas.get("tempo_total", 0.0),
             "arquivo_minuta": metricas.get("arquivo_minuta", ""),
             "arquivo_auditoria": metricas.get("arquivo_auditoria", ""),
+            "download_minuta_url": _build_download_url(metricas.get("arquivo_minuta", "")),
+            "download_auditoria_url": _build_download_url(metricas.get("arquivo_auditoria", "")),
             "preview": resultado.minuta_completa[:2500],
         }
         return render_template(
@@ -163,9 +216,20 @@ def processar():
 @app.get("/download")
 def download():
     """Download generated files from outputs directory."""
-    raw_path = request.args.get("path", "")
-    if not raw_path:
-        return "Parâmetro 'path' ausente.", 400
+    raw_path = ""
+    if ENABLE_WEB_DOWNLOAD_ACCESS_CONTROL:
+        _purge_expired_download_tokens()
+        token = str(request.args.get("token", "") or "").strip()
+        if not token:
+            return "Token de download ausente.", 403
+        token_payload = _DOWNLOAD_TOKENS.pop(token, None)
+        if not token_payload:
+            return "Token de download inválido ou expirado.", 403
+        raw_path = str(token_payload.get("path") or "")
+    else:
+        raw_path = request.args.get("path", "")
+        if not raw_path:
+            return "Parâmetro 'path' ausente.", 400
 
     requested = Path(raw_path).expanduser().resolve()
     outputs_root = OUTPUTS_DIR.resolve()
