@@ -10,6 +10,7 @@ import pytest
 from src.main import build_parser
 from src.models import (
     CampoEvidencia,
+    ClassificationAudit,
     Decisao,
     DocumentoEntrada,
     EstadoPipeline,
@@ -762,6 +763,93 @@ class TestFailClosedValidation:
         assert p.metricas["politica_escalonamento"]["ativo"] is True
         assert p.metricas["confianca_campos_etapa1"]["numero_processo"] >= 0.9
         assert p.metricas["confianca_temas_etapa2"]["tema_1"] >= 0.9
+
+    def test_pipeline_propagates_classification_manual_review_metadata(
+        self,
+        monkeypatch,
+        tmp_path: Path,
+    ) -> None:
+        estado = EstadoPipeline(
+            documentos_entrada=[
+                DocumentoEntrada(
+                    filepath="recurso.pdf",
+                    texto_extraido="texto recurso",
+                    tipo=TipoDocumento.RECURSO,
+                    classification_audit=ClassificationAudit(
+                        method="heuristica+score_composto",
+                        confidence=0.83,
+                        manual_review_recommended=True,
+                        manual_review_reasons=["consistencia:low_composite_margin"],
+                    ),
+                ),
+                DocumentoEntrada(
+                    filepath="acordao.pdf",
+                    texto_extraido="texto acordao",
+                    tipo=TipoDocumento.ACORDAO,
+                    classification_audit=ClassificationAudit(
+                        method="heuristica+score_composto",
+                        confidence=0.91,
+                        manual_review_recommended=False,
+                    ),
+                ),
+            ],
+            resultado_etapa1=ResultadoEtapa1(
+                numero_processo="123",
+                recorrente="JOÃO",
+                especie_recurso="RECURSO ESPECIAL",
+                evidencias_campos={
+                    "numero_processo": CampoEvidencia(citacao_literal="Processo 123", pagina=1, ancora="Processo"),
+                    "recorrente": CampoEvidencia(citacao_literal="Recorrente JOÃO", pagina=1, ancora="Recorrente"),
+                    "especie_recurso": CampoEvidencia(citacao_literal="RECURSO ESPECIAL", pagina=1, ancora="Espécie"),
+                },
+                verificacao_campos={
+                    "numero_processo": True,
+                    "recorrente": True,
+                    "especie_recurso": True,
+                },
+            ),
+            resultado_etapa2=ResultadoEtapa2(
+                temas=[
+                    TemaEtapa2(
+                        materia_controvertida="Responsabilidade civil",
+                        conclusao_fundamentos="Improcedência mantida",
+                        obices_sumulas=["Súmula 7"],
+                        trecho_transcricao="Trecho",
+                        evidencias_campos={
+                            "materia_controvertida": CampoEvidencia(
+                                citacao_literal="Responsabilidade civil", pagina=1, ancora="Tema"
+                            ),
+                            "conclusao_fundamentos": CampoEvidencia(
+                                citacao_literal="Improcedência mantida", pagina=1, ancora="Conclusão"
+                            ),
+                            "obices_sumulas": CampoEvidencia(
+                                citacao_literal="Súmula 7", pagina=1, ancora="Óbice"
+                            ),
+                            "trecho_transcricao": CampoEvidencia(
+                                citacao_literal="Trecho", pagina=1, ancora="Trecho"
+                            ),
+                        },
+                    )
+                ]
+            ),
+            resultado_etapa3=ResultadoEtapa3(
+                minuta_completa="Seção I\nSeção II\nSeção III\nINADMITO o recurso.",
+                decisao=Decisao.INADMITIDO,
+                fundamentos_decisao=["Óbice sumular."],
+                itens_evidencia_usados=["Tema 1/obices_sumulas: Súmula 7 (p.1)"],
+            ),
+        )
+        monkeypatch.setattr("src.pipeline.restaurar_estado", lambda processo_id=None: estado)
+
+        p = PipelineAdmissibilidade(formato_saida="md", saida_dir=str(tmp_path))
+        p.executar(pdfs=[], processo_id="test_manual_review_classificacao", continuar=True)
+
+        assert "classificacao_revisao_manual" in p.metricas
+        manual_review = p.metricas["classificacao_revisao_manual"]
+        assert manual_review["ativo"] is True
+        assert manual_review["revisao_recomendada"] is True
+        assert len(manual_review["documentos_ambiguos"]) == 1
+        assert manual_review["documentos_ambiguos"][0]["filepath"] == "recurso.pdf"
 
     def test_avaliar_politica_escalonamento_flags_low_confidence(self) -> None:
         policy = _avaliar_politica_escalonamento(

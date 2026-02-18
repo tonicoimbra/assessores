@@ -45,6 +45,8 @@ class ClassificationAudit(BaseModel):
     decision_margin: float = 0.0
     consistency_score: float = 1.0
     consistency_flags: list[str] = Field(default_factory=list)
+    manual_review_recommended: bool = False
+    manual_review_reasons: list[str] = Field(default_factory=list)
 
 
 # --- 1.3.1 DocumentoEntrada ---
@@ -154,6 +156,7 @@ class MetadadosPipeline(BaseModel):
     confianca_temas_etapa2: dict[str, float] = Field(default_factory=dict)
     confianca_global: float = 0.0
     politica_escalonamento: dict[str, Any] = Field(default_factory=dict)
+    classificacao_revisao_manual: dict[str, Any] = Field(default_factory=dict)
     chunking_auditoria: dict[str, Any] = Field(default_factory=dict)
     motivo_bloqueio_codigo: str = ""
     motivo_bloqueio_descricao: str = ""

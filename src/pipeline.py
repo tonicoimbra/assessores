@@ -16,6 +16,7 @@ from src.config import (
     CONFIDENCE_THRESHOLD_GLOBAL,
     CONFIDENCE_THRESHOLD_THEME,
     ENABLE_CHUNKING,
+    ENABLE_CLASSIFICATION_MANUAL_REVIEW,
     ENABLE_CONFIDENCE_ESCALATION,
     ENABLE_FAIL_CLOSED,
     ENABLE_EXTRACTION_QUALITY_GATE,
@@ -25,6 +26,8 @@ from src.config import (
     MIN_ACORDAO_COUNT,
     OPENAI_MODEL,
     PROMPT_PROFILE,
+    CLASSIFICATION_MANUAL_REVIEW_CONFIDENCE_THRESHOLD,
+    CLASSIFICATION_MANUAL_REVIEW_MARGIN_THRESHOLD,
     REQUIRE_EXACTLY_ONE_RECURSO,
     MODEL_LEGAL_ANALYSIS,
     MODEL_DRAFT_GENERATION,
@@ -757,6 +760,13 @@ class PipelineAdmissibilidade:
                 strict=self.fail_closed,
                 require_exactly_one_recurso=REQUIRE_EXACTLY_ONE_RECURSO,
                 min_acordaos=MIN_ACORDAO_COUNT,
+                manual_review_mode=ENABLE_CLASSIFICATION_MANUAL_REVIEW,
+                manual_review_confidence_threshold=(
+                    CLASSIFICATION_MANUAL_REVIEW_CONFIDENCE_THRESHOLD
+                ),
+                manual_review_margin_threshold=(
+                    CLASSIFICATION_MANUAL_REVIEW_MARGIN_THRESHOLD
+                ),
             )
             self.metricas["tempo_classificacao"] = time.time() - t0
             _log_structured_event(
@@ -777,6 +787,64 @@ class PipelineAdmissibilidade:
                 require_exactly_one_recurso=REQUIRE_EXACTLY_ONE_RECURSO,
                 min_acordaos=MIN_ACORDAO_COUNT,
             )
+
+        classificacao_revisao_manual: dict[str, Any] = {
+            "ativo": ENABLE_CLASSIFICATION_MANUAL_REVIEW,
+            "revisao_recomendada": False,
+            "thresholds": {
+                "confidence": round(
+                    CLASSIFICATION_MANUAL_REVIEW_CONFIDENCE_THRESHOLD,
+                    3,
+                ),
+                "margin": round(CLASSIFICATION_MANUAL_REVIEW_MARGIN_THRESHOLD, 3),
+            },
+            "documentos_ambiguos": [],
+        }
+        if ENABLE_CLASSIFICATION_MANUAL_REVIEW:
+            docs_ambiguos: list[dict[str, Any]] = []
+            for doc in estado.documentos_entrada:
+                audit = doc.classification_audit
+                if audit is None:
+                    if doc.tipo == TipoDocumento.DESCONHECIDO:
+                        docs_ambiguos.append(
+                            {
+                                "filepath": doc.filepath,
+                                "tipo": doc.tipo.value,
+                                "metodo": "sem_auditoria",
+                                "confidence": 0.0,
+                                "decision_margin": 0.0,
+                                "motivos": ["tipo_desconhecido", "sem_auditoria_classificacao"],
+                            }
+                        )
+                    continue
+
+                if audit.manual_review_recommended:
+                    docs_ambiguos.append(
+                        {
+                            "filepath": doc.filepath,
+                            "tipo": doc.tipo.value,
+                            "metodo": audit.method,
+                            "confidence": round(float(audit.confidence), 3),
+                            "decision_margin": round(float(audit.decision_margin), 3),
+                            "motivos": audit.manual_review_reasons,
+                        }
+                    )
+
+            classificacao_revisao_manual["documentos_ambiguos"] = docs_ambiguos
+            classificacao_revisao_manual["revisao_recomendada"] = bool(docs_ambiguos)
+            if docs_ambiguos:
+                _log_structured_event(
+                    evento="classificacao_revisao_manual_recomendada",
+                    processo_id=processo_id,
+                    execucao_id=execucao_id,
+                    etapa="classificacao",
+                    extra={
+                        "quantidade_documentos_ambiguos": len(docs_ambiguos),
+                        "arquivos": [d["filepath"] for d in docs_ambiguos],
+                    },
+                )
+        estado.metadata.classificacao_revisao_manual = classificacao_revisao_manual
+        self.metricas["classificacao_revisao_manual"] = classificacao_revisao_manual
 
         # Identify recurso and acórdão texts
         texto_recurso = ""
@@ -1143,6 +1211,15 @@ class PipelineAdmissibilidade:
                     "motivos": motivos,
                 },
             )
+        classificacao_revisao_manual = estado.metadata.classificacao_revisao_manual
+        if classificacao_revisao_manual.get("revisao_recomendada"):
+            docs_ambiguos = classificacao_revisao_manual.get("documentos_ambiguos", [])
+            for doc_info in docs_ambiguos:
+                arquivo = doc_info.get("filepath", "desconhecido")
+                motivos = ", ".join(doc_info.get("motivos", [])) or "motivos não informados"
+                alertas_validacao_auditoria.append(
+                    f"classificacao_revisao_manual: {arquivo}: {motivos}"
+                )
 
         # Format and save
         numero_proc = estado.resultado_etapa1.numero_processo or "sem_numero"

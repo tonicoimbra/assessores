@@ -2,6 +2,9 @@
 
 from src.config import (
     BASE_DIR,
+    CLASSIFICATION_MANUAL_REVIEW_CONFIDENCE_THRESHOLD,
+    CLASSIFICATION_MANUAL_REVIEW_MARGIN_THRESHOLD,
+    ENABLE_CLASSIFICATION_MANUAL_REVIEW,
     ENABLE_EXTRACTION_QUALITY_GATE,
     EXTRACTION_MAX_NOISE_RATIO,
     EXTRACTION_MIN_QUALITY_SCORE,
@@ -35,6 +38,11 @@ class TestConfigDefaults:
         assert isinstance(ENABLE_EXTRACTION_QUALITY_GATE, bool)
         assert 0.0 <= EXTRACTION_MIN_QUALITY_SCORE <= 1.0
         assert 0.0 <= EXTRACTION_MAX_NOISE_RATIO <= 1.0
+
+    def test_classification_manual_review_defaults(self) -> None:
+        assert isinstance(ENABLE_CLASSIFICATION_MANUAL_REVIEW, bool)
+        assert 0.0 <= CLASSIFICATION_MANUAL_REVIEW_CONFIDENCE_THRESHOLD <= 1.0
+        assert 0.0 <= CLASSIFICATION_MANUAL_REVIEW_MARGIN_THRESHOLD <= 1.0
 
 
 class TestConfigPaths:

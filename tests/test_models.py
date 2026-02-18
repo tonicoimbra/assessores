@@ -48,6 +48,8 @@ class TestDocumentoEntrada:
         assert doc.classification_audit.method == "heuristica"
         assert doc.classification_audit.verifier_ok is True
         assert doc.classification_audit.verifier_tipo == ""
+        assert doc.classification_audit.manual_review_recommended is False
+        assert doc.classification_audit.manual_review_reasons == []
 
     def test_rejects_missing_filepath(self) -> None:
         with pytest.raises(ValidationError):
@@ -177,6 +179,7 @@ class TestEstadoPipeline:
         assert estado.metadata.confianca_temas_etapa2 == {}
         assert estado.metadata.confianca_global == 0.0
         assert estado.metadata.politica_escalonamento == {}
+        assert estado.metadata.classificacao_revisao_manual == {}
         assert estado.metadata.chunking_auditoria == {}
         assert estado.metadata.prompt_profile == ""
         assert estado.metadata.prompt_version == ""

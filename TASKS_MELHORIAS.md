@@ -88,7 +88,7 @@
 - [x] >= 1 `ACORDAO`.
 - [x] **CLS-003** Se invariantes falharem, parar pipeline com erro orientado e ação recomendada.
 - [x] **CLS-004** Registrar evidências da classificação (trechos + padrões acionados).
-- [ ] **CLS-005** Adicionar modo de revisão manual para documentos ambíguos.
+- [x] **CLS-005** Adicionar modo de revisão manual para documentos ambíguos.
 
 ## 3) Etapa 1 — Extração Estruturada do Recurso (P0)
 

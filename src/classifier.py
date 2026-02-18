@@ -535,12 +535,41 @@ def classificar_documento(texto: str) -> ClassificationResult:
     return resultado_final
 
 
+def _avaliar_revisao_manual_classificacao(
+    resultado: ClassificationResult,
+    *,
+    confidence_threshold: float,
+    margin_threshold: float,
+) -> tuple[bool, list[str]]:
+    """Determine whether the classification should be escalated to manual review."""
+    motivos: list[str] = []
+
+    if resultado.tipo == TipoDocumento.DESCONHECIDO:
+        motivos.append("tipo_desconhecido")
+    if resultado.confianca < confidence_threshold:
+        motivos.append(
+            f"confianca_baixa<{confidence_threshold:.2f}:{resultado.confianca:.3f}"
+        )
+    if resultado.decision_margin < margin_threshold:
+        motivos.append(
+            f"margem_baixa<{margin_threshold:.2f}:{resultado.decision_margin:.3f}"
+        )
+
+    for flag in resultado.consistency_flags or []:
+        motivos.append(f"consistencia:{flag}")
+
+    return bool(motivos), list(dict.fromkeys(motivos))
+
+
 def classificar_documentos(
     documentos: list[DocumentoEntrada],
     *,
     strict: bool = False,
     require_exactly_one_recurso: bool = True,
     min_acordaos: int = 1,
+    manual_review_mode: bool = False,
+    manual_review_confidence_threshold: float = 0.65,
+    manual_review_margin_threshold: float = 0.15,
 ) -> list[DocumentoEntrada]:
     """
     Classify multiple documents and update their tipo field.
@@ -577,6 +606,15 @@ def classificar_documentos(
             consistency_score=resultado.consistency_score,
             consistency_flags=resultado.consistency_flags or [],
         )
+        if manual_review_mode:
+            recomendado, motivos = _avaliar_revisao_manual_classificacao(
+                resultado,
+                confidence_threshold=manual_review_confidence_threshold,
+                margin_threshold=manual_review_margin_threshold,
+            )
+            doc.classification_audit.manual_review_recommended = recomendado
+            doc.classification_audit.manual_review_reasons = motivos
+
         logger.info(
             "🧾 Classificação auditada — arquivo=%s tipo=%s método=%s conf=%.2f "
             "score_r=%.2f score_a=%.2f comp_r=%.2f comp_a=%.2f margem=%.2f evidências=%d",

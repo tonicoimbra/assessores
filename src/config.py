@@ -113,6 +113,15 @@ MODEL_DRAFT_GENERATION: str = os.getenv("MODEL_DRAFT_GENERATION", "gpt-4.1")
 # Input invariants for classification
 REQUIRE_EXACTLY_ONE_RECURSO: bool = os.getenv("REQUIRE_EXACTLY_ONE_RECURSO", "true").lower() == "true"
 MIN_ACORDAO_COUNT: int = int(os.getenv("MIN_ACORDAO_COUNT", "1"))
+ENABLE_CLASSIFICATION_MANUAL_REVIEW: bool = (
+    os.getenv("ENABLE_CLASSIFICATION_MANUAL_REVIEW", "true").lower() == "true"
+)
+CLASSIFICATION_MANUAL_REVIEW_CONFIDENCE_THRESHOLD: float = float(
+    os.getenv("CLASSIFICATION_MANUAL_REVIEW_CONFIDENCE_THRESHOLD", "0.65")
+)
+CLASSIFICATION_MANUAL_REVIEW_MARGIN_THRESHOLD: float = float(
+    os.getenv("CLASSIFICATION_MANUAL_REVIEW_MARGIN_THRESHOLD", "0.15")
+)
 
 # Cache configuration
 CACHE_TTL_HOURS: int = int(os.getenv("CACHE_TTL_HOURS", "24"))

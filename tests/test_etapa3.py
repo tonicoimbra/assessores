@@ -247,6 +247,7 @@ class TestFormatacaoMarkdown:
             assert "\"confianca\"" in payload
             assert "\"global\": 0.72" in payload
             assert "\"escalonamento\"" in payload
+            assert "\"classificacao_revisao_manual\"" in payload
             assert "\"chunking_auditoria\"" in payload
             assert "\"llm_stats\"" in payload
             assert "\"prompt\"" in payload

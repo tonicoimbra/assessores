@@ -261,6 +261,7 @@ def _build_audit_payload(
             "global": meta.confianca_global,
         },
         "escalonamento": meta.politica_escalonamento,
+        "classificacao_revisao_manual": meta.classificacao_revisao_manual,
         "chunking_auditoria": meta.chunking_auditoria,
         "motivo_bloqueio": {
             "codigo": meta.motivo_bloqueio_codigo,
@@ -309,6 +310,7 @@ def gerar_relatorio_auditoria(
     modelos = payload["modelos_utilizados"]
     confianca = payload["confianca"]
     escalonamento = payload["escalonamento"]
+    classificacao_revisao_manual = payload["classificacao_revisao_manual"]
     chunking_auditoria = payload["chunking_auditoria"]
     motivo_bloqueio = payload["motivo_bloqueio"]
     pipeline = payload["pipeline"]
@@ -365,6 +367,13 @@ def gerar_relatorio_auditoria(
         f"- Ativo: {'Sim' if bool(escalonamento.get('ativo')) else 'Não'}",
         f"- Escalonar revisão humana: {'Sim' if bool(escalonamento.get('escalonar')) else 'Não'}",
         f"- Thresholds: {escalonamento.get('thresholds', {})}",
+        "",
+        "## Revisão Manual de Classificação",
+        "",
+        f"- Ativo: {'Sim' if bool(classificacao_revisao_manual.get('ativo')) else 'Não'}",
+        f"- Revisão recomendada: {'Sim' if bool(classificacao_revisao_manual.get('revisao_recomendada')) else 'Não'}",
+        f"- Thresholds: {classificacao_revisao_manual.get('thresholds', {})}",
+        f"- Documentos ambíguos: {classificacao_revisao_manual.get('documentos_ambiguos', [])}",
         "",
         "## Chunking Auditável",
         "",

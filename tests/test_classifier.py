@@ -257,6 +257,39 @@ class TestClassificarDocumentos:
         with pytest.raises(DocumentClassificationError):
             classificar_documentos(docs, strict=True)
 
+    @patch("src.classifier._classificar_por_llm")
+    def test_manual_review_mode_marks_ambiguous_documents(self, mock_llm) -> None:
+        mock_llm.return_value = ClassificationResult(
+            tipo=TipoDocumento.DESCONHECIDO,
+            confianca=0.2,
+            metodo="llm",
+        )
+        docs = [
+            DocumentoEntrada(
+                filepath="recurso.pdf",
+                texto_extraido="PROJUDI - Recurso: Recurso Especial razões recursais art. 105, III",
+            ),
+            DocumentoEntrada(
+                filepath="ambiguo.pdf",
+                texto_extraido="Texto processual genérico sem padrões determinísticos.",
+            ),
+        ]
+
+        result = classificar_documentos(
+            docs,
+            require_exactly_one_recurso=False,
+            min_acordaos=0,
+            manual_review_mode=True,
+        )
+
+        recurso_audit = result[0].classification_audit
+        ambiguo_audit = result[1].classification_audit
+        assert recurso_audit is not None
+        assert ambiguo_audit is not None
+        assert recurso_audit.manual_review_recommended is False
+        assert ambiguo_audit.manual_review_recommended is True
+        assert any("tipo_desconhecido" in m for m in ambiguo_audit.manual_review_reasons)
+
 
 class TestAgruparDocumentos:
     """Test document grouping by type."""
