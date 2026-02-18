@@ -5,6 +5,7 @@ from src.config import (
     CLASSIFICATION_MANUAL_REVIEW_CONFIDENCE_THRESHOLD,
     CLASSIFICATION_MANUAL_REVIEW_MARGIN_THRESHOLD,
     CONTEXT_MIN_COVERAGE_RATIO,
+    ENABLE_ETAPA1_CRITICAL_FIELDS_CONSENSUS,
     ENABLE_CLASSIFICATION_MANUAL_REVIEW,
     ENABLE_CONTEXT_COVERAGE_GATE,
     ENABLE_EXTRACTION_QUALITY_GATE,
@@ -59,6 +60,9 @@ class TestConfigDefaults:
     def test_context_coverage_gate_defaults(self) -> None:
         assert isinstance(ENABLE_CONTEXT_COVERAGE_GATE, bool)
         assert 0.0 <= CONTEXT_MIN_COVERAGE_RATIO <= 1.0
+
+    def test_etapa1_consensus_flag_default(self) -> None:
+        assert isinstance(ENABLE_ETAPA1_CRITICAL_FIELDS_CONSENSUS, bool)
 
     def test_retention_defaults(self) -> None:
         assert isinstance(ENABLE_RETENTION_POLICY, bool)

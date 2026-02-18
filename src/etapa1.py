@@ -7,9 +7,11 @@ import re
 import tiktoken
 
 from src.config import (
+    CONFIDENCE_THRESHOLD_FIELD,
     CONTEXT_LIMIT_TOKENS,
     CONTEXT_WARNING_RATIO,
     ENABLE_CHUNKING,
+    ENABLE_ETAPA1_CRITICAL_FIELDS_CONSENSUS,
     MAX_TOKENS_ETAPA1,
     MAX_TOKENS_INTERMEDIATE,
     MAX_CONTEXT_TOKENS,
@@ -342,6 +344,26 @@ Regras:
 - Não invente.
 - Campo ausente: "[NÃO CONSTA NO DOCUMENTO]".
 - Resposta apenas JSON válido.
+""".strip()
+
+ETAPA1_CRITICAL_CONSENSUS_DEVELOPER = """
+CONSENSO_N2_ETAPA1
+Retorne APENAS JSON válido para os campos críticos da Etapa 1:
+{
+  "numero_processo": "string",
+  "recorrente": "string",
+  "especie_recurso": "string",
+  "evidencias_campos": {
+    "numero_processo": {"citacao_literal": "string", "pagina": 1, "ancora": "string", "offset_inicio": 0},
+    "recorrente": {"citacao_literal": "string", "pagina": 1, "ancora": "string", "offset_inicio": 0},
+    "especie_recurso": {"citacao_literal": "string", "pagina": 1, "ancora": "string", "offset_inicio": 0}
+  }
+}
+Regras:
+- Use exclusivamente o texto-fonte.
+- Não invente.
+- Se não constar, use string vazia.
+- Não inclua markdown nem texto fora do JSON.
 """.strip()
 
 ETAPA1_FREE_TEXT_TO_JSON_DEVELOPER = """
@@ -854,6 +876,161 @@ def _compactar_resumos_etapa1(resumos: list[dict]) -> str:
     return resumo_compacto
 
 
+def _score_campo_critico_etapa1(resultado: ResultadoEtapa1, campo: str) -> float:
+    """Compute confidence score (0..1) for one critical field in Stage 1."""
+    valor = str(getattr(resultado, campo, "") or "").strip()
+    if not valor:
+        return 0.0
+
+    evidencia = resultado.evidencias_campos.get(campo)
+    checks = [
+        True,
+        evidencia is not None,
+        bool(evidencia and evidencia.citacao_literal.strip()),
+        bool(evidencia and evidencia.pagina is not None and evidencia.pagina >= 1),
+        bool(evidencia and evidencia.ancora.strip()),
+        resultado.verificacao_campos.get(campo) is True,
+    ]
+    return sum(1 for ok in checks if ok) / len(checks)
+
+
+def _extrair_campos_criticos_de_alertas(alertas: list[str]) -> set[str]:
+    """Extract critical field names cited in validation alerts."""
+    campos: set[str] = set()
+    for alerta in alertas:
+        alerta_norm = str(alerta or "").lower()
+        for campo in CRITICAL_FIELDS_ETAPA1:
+            if campo in alerta_norm:
+                campos.add(campo)
+    return campos
+
+
+def _normalizar_valor_consenso(campo: str, valor: str) -> str:
+    """Normalize field value for consensus comparison."""
+    raw = str(valor or "").strip()
+    if not raw:
+        return ""
+    if campo == "numero_processo":
+        return re.sub(r"\D", "", raw)
+    return re.sub(r"\s+", " ", raw).strip().casefold()
+
+
+def _detectar_campos_baixa_confianca_etapa1(
+    resultado: ResultadoEtapa1,
+    *,
+    alertas_validacao: list[str],
+    alertas_evidencia: list[str],
+    alertas_verificador: list[str],
+    had_structured_instability: bool,
+) -> list[str]:
+    """Detect critical fields that should enter N=2 consensus pass."""
+    alertas = alertas_validacao + alertas_evidencia + alertas_verificador
+    campos = _extrair_campos_criticos_de_alertas(alertas)
+
+    for campo in CRITICAL_FIELDS_ETAPA1:
+        score = _score_campo_critico_etapa1(resultado, campo)
+        if score < CONFIDENCE_THRESHOLD_FIELD:
+            campos.add(campo)
+        elif had_structured_instability and str(getattr(resultado, campo, "") or "").strip():
+            # Instability in structured extraction is treated as low confidence signal.
+            campos.add(campo)
+
+    return sorted(campos)
+
+
+def _aplicar_consenso_n2_campos_criticos(
+    resultado: ResultadoEtapa1,
+    *,
+    texto_recurso_original: str,
+    model: str,
+    campos_alvo: list[str],
+) -> dict[str, list[str]]:
+    """Run N=2 consensus for critical fields and apply only convergent verified values."""
+    diagnostico: dict[str, list[str]] = {
+        "aplicados": [],
+        "divergentes": [],
+        "falhas_chamada": [],
+    }
+    if not campos_alvo:
+        return diagnostico
+
+    votos: dict[str, list[tuple[str, str, CampoEvidencia]]] = {campo: [] for campo in campos_alvo}
+    campos_str = ", ".join(campos_alvo)
+    user_text = (
+        "Reavalie SOMENTE os campos críticos da Etapa 1 com evidências.\n"
+        f"Campos-alvo: {campos_str}\n\n"
+        "Texto do recurso:\n"
+        f"{texto_recurso_original}"
+    )
+    messages = build_messages(
+        stage="etapa1",
+        user_text=user_text,
+        include_references=False,
+        developer_override=ETAPA1_CRITICAL_CONSENSUS_DEVELOPER,
+    )
+
+    for tentativa in range(1, 3):
+        try:
+            payload = chamar_llm_json(
+                messages=messages,
+                model=model,
+                max_tokens=MAX_TOKENS_INTERMEDIATE,
+                temperature=0.0,
+                use_cache=False,
+                response_schema=ETAPA1_RESPONSE_SCHEMA,
+                schema_name="etapa1_resultado",
+            )
+        except Exception as e:
+            diagnostico["falhas_chamada"].append(f"tentativa_{tentativa}:{type(e).__name__}")
+            continue
+
+        candidato = _resultado_etapa1_from_json(payload)
+        _enriquecer_evidencias_campos_criticos(candidato, texto_recurso_original)
+        _verificador_independente_etapa1(candidato, texto_recurso_original)
+
+        for campo in campos_alvo:
+            valor = str(getattr(candidato, campo, "") or "").strip()
+            if not valor:
+                continue
+            if candidato.verificacao_campos.get(campo) is not True:
+                continue
+            evidencia = candidato.evidencias_campos.get(campo)
+            if (
+                evidencia is None
+                or not evidencia.citacao_literal.strip()
+                or evidencia.pagina is None
+                or evidencia.pagina < 1
+                or not evidencia.ancora.strip()
+            ):
+                continue
+            votos[campo].append((_normalizar_valor_consenso(campo, valor), valor, evidencia))
+
+    for campo in campos_alvo:
+        votos_campo = votos.get(campo, [])
+        if len(votos_campo) < 2:
+            continue
+
+        norm_1, valor_1, evid_1 = votos_campo[0]
+        norm_2, valor_2, evid_2 = votos_campo[1]
+        if not norm_1 or norm_1 != norm_2:
+            diagnostico["divergentes"].append(campo)
+            continue
+
+        valor_consenso = valor_1 if len(valor_1) >= len(valor_2) else valor_2
+        evidencia_consenso = _merge_evidencia(evid_1, evid_2)
+        valor_atual = str(getattr(resultado, campo, "") or "").strip()
+        if valor_consenso and valor_consenso != valor_atual:
+            setattr(resultado, campo, valor_consenso)
+            diagnostico["aplicados"].append(campo)
+        resultado.evidencias_campos[campo] = _merge_evidencia(
+            resultado.evidencias_campos.get(campo),
+            evidencia_consenso,
+        )
+        resultado.verificacao_campos[campo] = True
+
+    return diagnostico
+
+
 def executar_etapa1(
     texto_recurso: str,
     prompt_sistema: str,
@@ -893,6 +1070,7 @@ def executar_etapa1(
     structured_success = False
     structured_error: Exception | None = None
     retry_hints: list[str] = []
+    had_structured_instability = False
     for attempt in range(1, ETAPA1_STRUCTURED_MAX_ATTEMPTS + 1):
         developer_prompt = ETAPA1_STRUCTURED_DEVELOPER
         if retry_hints:
@@ -935,6 +1113,7 @@ def executar_etapa1(
                 alertas_evidencia,
                 alertas_verificador,
             )
+            had_structured_instability = True
             logger.warning(
                 "Etapa 1 estruturada com inconsistências na tentativa %d; preparando retry orientado.",
                 attempt,
@@ -942,9 +1121,11 @@ def executar_etapa1(
         except Exception as e:
             structured_error = e
             retry_hints = _build_retry_hints_etapa1([], [], [], structured_error=e)
+            had_structured_instability = True
             logger.warning("Falha no modo estruturado da Etapa 1 (tentativa %d): %s", attempt, e)
 
     if not structured_success:
+        had_structured_instability = True
         logger.warning(
             "Falha persistente no modo estruturado da Etapa 1 (%s). "
             "Usando fallback legado de texto livre.",
@@ -983,6 +1164,43 @@ def executar_etapa1(
     alertas_validacao = _validar_campos(resultado, texto_recurso)
     alertas_evidencia = _validar_evidencias_campos_criticos(resultado, texto_recurso_original)
     alertas_verificador = _verificador_independente_etapa1(resultado, texto_recurso_original)
+    campos_baixa_confianca = _detectar_campos_baixa_confianca_etapa1(
+        resultado,
+        alertas_validacao=alertas_validacao,
+        alertas_evidencia=alertas_evidencia,
+        alertas_verificador=alertas_verificador,
+        had_structured_instability=had_structured_instability,
+    )
+    if ENABLE_ETAPA1_CRITICAL_FIELDS_CONSENSUS and campos_baixa_confianca:
+        logger.info(
+            "🔁 Consenso N=2 acionado para campos críticos da Etapa 1: %s",
+            ", ".join(campos_baixa_confianca),
+        )
+        diagnostico_consenso = _aplicar_consenso_n2_campos_criticos(
+            resultado,
+            texto_recurso_original=texto_recurso_original,
+            model=model,
+            campos_alvo=campos_baixa_confianca,
+        )
+        if diagnostico_consenso["aplicados"]:
+            logger.info(
+                "✅ Consenso N=2 aplicou atualização em: %s",
+                ", ".join(sorted(set(diagnostico_consenso["aplicados"]))),
+            )
+            _enriquecer_evidencias_campos_criticos(resultado, texto_recurso_original)
+            alertas_validacao = _validar_campos(resultado, texto_recurso)
+            alertas_evidencia = _validar_evidencias_campos_criticos(resultado, texto_recurso_original)
+            alertas_verificador = _verificador_independente_etapa1(resultado, texto_recurso_original)
+        if diagnostico_consenso["divergentes"]:
+            logger.warning(
+                "Consenso N=2 sem convergência para: %s",
+                ", ".join(sorted(set(diagnostico_consenso["divergentes"]))),
+            )
+        if diagnostico_consenso["falhas_chamada"]:
+            logger.warning(
+                "Consenso N=2 com falha em chamada(s): %s",
+                ", ".join(diagnostico_consenso["falhas_chamada"]),
+            )
 
     # 3.1.6 Hallucination check
     alertas_alucinacao = _detectar_alucinacao(resultado, texto_recurso_original)

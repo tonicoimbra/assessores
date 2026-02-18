@@ -610,3 +610,120 @@ class TestExecutarEtapa1Flow:
         assert resultado.inconclusivo is True
         assert resultado.motivo_inconclusivo
         assert "Campo obrigatório ausente" in resultado.motivo_inconclusivo
+
+    def test_consenso_n2_aplica_valor_convergente_em_baixa_confianca(self, monkeypatch) -> None:
+        monkeypatch.setattr("src.etapa1.ENABLE_ETAPA1_CRITICAL_FIELDS_CONSENSUS", True)
+        call_state = {"structured": 0, "consenso": 0}
+
+        def _llm_json_stub(**kwargs):
+            messages = kwargs.get("messages") or []
+            developer_prompt = ""
+            for msg in messages:
+                if msg.get("role") == "developer":
+                    developer_prompt = msg.get("content", "")
+                    break
+
+            if "CONSENSO_N2_ETAPA1" in developer_prompt:
+                call_state["consenso"] += 1
+                return {
+                    "numero_processo": "1234567-89.2024.8.16.0001",
+                    "recorrente": "JOÃO DA SILVA",
+                    "especie_recurso": "RECURSO ESPECIAL",
+                    "evidencias_campos": {},
+                }
+
+            call_state["structured"] += 1
+            if call_state["structured"] == 1:
+                return {
+                    "numero_processo": "",
+                    "recorrente": "JOÃO",
+                    "especie_recurso": "RECURSO ESPECIAL",
+                    "evidencias_campos": {},
+                }
+            return {
+                "numero_processo": "1234567-89.2024.8.16.0001",
+                "recorrente": "JOÃO",
+                "especie_recurso": "RECURSO ESPECIAL",
+                "evidencias_campos": {},
+            }
+
+        monkeypatch.setattr("src.etapa1.chamar_llm_json", _llm_json_stub)
+        monkeypatch.setattr(
+            "src.etapa1.chamar_llm",
+            lambda **kwargs: (_ for _ in ()).throw(AssertionError("fallback legacy should not be called")),
+        )
+
+        texto = (
+            "Processo nº 1234567-89.2024.8.16.0001\n"
+            "Recorrente: JOÃO DA SILVA\n"
+            "Espécie: RECURSO ESPECIAL\n"
+        )
+        resultado = executar_etapa1(
+            texto_recurso=texto,
+            prompt_sistema="",
+            modelo_override="gpt-4o",
+        )
+
+        assert call_state["structured"] >= 2
+        assert call_state["consenso"] == 2
+        assert resultado.recorrente == "JOÃO DA SILVA"
+        assert resultado.inconclusivo is False
+
+    def test_consenso_n2_nao_sobrescreve_quando_diverge(self, monkeypatch) -> None:
+        monkeypatch.setattr("src.etapa1.ENABLE_ETAPA1_CRITICAL_FIELDS_CONSENSUS", True)
+        call_state = {"structured": 0, "consenso": 0}
+
+        def _llm_json_stub(**kwargs):
+            messages = kwargs.get("messages") or []
+            developer_prompt = ""
+            for msg in messages:
+                if msg.get("role") == "developer":
+                    developer_prompt = msg.get("content", "")
+                    break
+
+            if "CONSENSO_N2_ETAPA1" in developer_prompt:
+                call_state["consenso"] += 1
+                nome = "JOÃO DA SILVA" if call_state["consenso"] == 1 else "JOÃO PEDRO"
+                return {
+                    "numero_processo": "1234567-89.2024.8.16.0001",
+                    "recorrente": nome,
+                    "especie_recurso": "RECURSO ESPECIAL",
+                    "evidencias_campos": {},
+                }
+
+            call_state["structured"] += 1
+            if call_state["structured"] == 1:
+                return {
+                    "numero_processo": "",
+                    "recorrente": "JOÃO",
+                    "especie_recurso": "RECURSO ESPECIAL",
+                    "evidencias_campos": {},
+                }
+            return {
+                "numero_processo": "1234567-89.2024.8.16.0001",
+                "recorrente": "JOÃO",
+                "especie_recurso": "RECURSO ESPECIAL",
+                "evidencias_campos": {},
+            }
+
+        monkeypatch.setattr("src.etapa1.chamar_llm_json", _llm_json_stub)
+        monkeypatch.setattr(
+            "src.etapa1.chamar_llm",
+            lambda **kwargs: (_ for _ in ()).throw(AssertionError("fallback legacy should not be called")),
+        )
+
+        texto = (
+            "Processo nº 1234567-89.2024.8.16.0001\n"
+            "Recorrente: JOÃO DA SILVA\n"
+            "Espécie: RECURSO ESPECIAL\n"
+        )
+        resultado = executar_etapa1(
+            texto_recurso=texto,
+            prompt_sistema="",
+            modelo_override="gpt-4o",
+        )
+
+        assert call_state["structured"] >= 2
+        assert call_state["consenso"] == 2
+        assert resultado.recorrente == "JOÃO"
+        assert resultado.inconclusivo is False

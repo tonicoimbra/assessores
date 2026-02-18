@@ -146,7 +146,7 @@
 - [x] **LLM-003** Implementar idempotência por `request_id` e reexecução segura.
 - [x] **LLM-004** Isolar cache por versão de prompt, modelo e schema.
 - [x] **LLM-005** Registrar latência, retries, truncamentos e taxa de erro por etapa.
-- [ ] **LLM-006** Opcional: consenso N=2 para campos críticos em casos de baixa confiança.
+- [x] **LLM-006** Opcional: consenso N=2 para campos críticos em casos de baixa confiança.
 
 ## 8) Prompt e Governança de Versão (P1)
 
@@ -195,13 +195,13 @@
 
 ## 13) Roadmap de Execução
 
-- [ ] **Fase A (P0 imediato)**: `PDF-*`, `CLS-*`, `E1-*`, `E2-*`, `E3-*`, `CTX-*`, `LLM-*`, `TST-*`.
-- [ ] **Fase B (P1)**: `PRM-*`, `AUD-*`, `OBS-*`, `SEC-*`.
+- [x] **Fase A (P0 imediato)**: `PDF-*`, `CLS-*`, `E1-*`, `E2-*`, `E3-*`, `CTX-*`, `LLM-*`, `TST-*`.
+- [x] **Fase B (P1)**: `PRM-*`, `AUD-*`, `OBS-*`, `SEC-*`.
 - [ ] **Fase C (otimização)**: consenso multi-modelo, calibração de confiança e redução de custo sem perda de qualidade.
 
 ## 14) Critérios de Pronto para Produção
 
-- [ ] **PRD-READY-001** Todos os itens P0 concluídos e testados.
+- [x] **PRD-READY-001** Todos os itens P0 concluídos e testados.
 - [ ] **PRD-READY-002** Gates de qualidade atendidos por 3 execuções consecutivas no CI.
 - [ ] **PRD-READY-003** 0 falhas críticas de evidência em dataset ouro.
 - [ ] **PRD-READY-004** Política fail-closed ativa e validada em cenários de erro.
