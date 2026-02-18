@@ -149,7 +149,7 @@ class MetadadosPipeline(BaseModel):
     prompt_profile: str = ""
     prompt_version: str = ""
     prompt_hash_sha256: str = ""
-    llm_stats: dict[str, float] = Field(default_factory=dict)
+    llm_stats: dict[str, Any] = Field(default_factory=dict)
     modelos_utilizados: dict[str, str] = Field(default_factory=dict)
     confianca_por_etapa: dict[str, float] = Field(default_factory=dict)
     confianca_campos_etapa1: dict[str, float] = Field(default_factory=dict)

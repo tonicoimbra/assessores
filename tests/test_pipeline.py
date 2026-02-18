@@ -843,9 +843,16 @@ class TestFailClosedValidation:
         assert "confianca_temas_etapa2" in p.metricas
         assert "politica_escalonamento" in p.metricas
         assert "chunking_auditoria" in p.metricas
+        assert "llm_metricas_por_etapa" in p.metricas
         assert p.metricas["politica_escalonamento"]["ativo"] is True
         assert p.metricas["confianca_campos_etapa1"]["numero_processo"] >= 0.9
         assert p.metricas["confianca_temas_etapa2"]["tema_1"] >= 0.9
+        assert set(p.metricas["llm_metricas_por_etapa"].keys()) == {
+            "classificacao",
+            "etapa1",
+            "etapa2",
+            "etapa3",
+        }
 
     def test_pipeline_propagates_classification_manual_review_metadata(
         self,

@@ -689,6 +689,66 @@ class PipelineAdmissibilidade:
             estado.metadata.prompt_hash_sha256 = assinatura_prompt["prompt_hash_sha256"]
 
         total_steps = 6
+        llm_metricas_por_etapa: dict[str, dict[str, float]] = {
+            "classificacao": {
+                "llm_calls": 0.0,
+                "llm_retries": 0.0,
+                "llm_truncamentos": 0.0,
+                "llm_latencia_media_ms": 0.0,
+                "llm_taxa_erro": 0.0,
+            },
+            "etapa1": {
+                "llm_calls": 0.0,
+                "llm_retries": 0.0,
+                "llm_truncamentos": 0.0,
+                "llm_latencia_media_ms": 0.0,
+                "llm_taxa_erro": 0.0,
+            },
+            "etapa2": {
+                "llm_calls": 0.0,
+                "llm_retries": 0.0,
+                "llm_truncamentos": 0.0,
+                "llm_latencia_media_ms": 0.0,
+                "llm_taxa_erro": 0.0,
+            },
+            "etapa3": {
+                "llm_calls": 0.0,
+                "llm_retries": 0.0,
+                "llm_truncamentos": 0.0,
+                "llm_latencia_media_ms": 0.0,
+                "llm_taxa_erro": 0.0,
+            },
+        }
+
+        def _snapshot_llm_tracker() -> tuple[int, int]:
+            return token_tracker.total_calls, token_tracker.total_truncated_calls
+
+        def _registrar_metricas_llm_etapa(
+            etapa_nome: str,
+            inicio_calls: int,
+            inicio_truncadas: int,
+            *,
+            erro: bool,
+        ) -> None:
+            stage_calls = token_tracker.calls[inicio_calls:]
+            total_calls = len(stage_calls)
+            truncadas = max(0, token_tracker.total_truncated_calls - inicio_truncadas)
+            latencia_media = (
+                round(
+                    sum(float(getattr(c, "latency_ms", 0.0) or 0.0) for c in stage_calls)
+                    / total_calls,
+                    2,
+                )
+                if total_calls
+                else 0.0
+            )
+            llm_metricas_por_etapa[etapa_nome] = {
+                "llm_calls": float(total_calls),
+                "llm_retries": float(truncadas),
+                "llm_truncamentos": float(truncadas),
+                "llm_latencia_media_ms": latencia_media,
+                "llm_taxa_erro": 1.0 if erro else 0.0,
+            }
 
         # Step 1: Extract text from PDFs
         if not estado.documentos_entrada:
@@ -781,19 +841,32 @@ class PipelineAdmissibilidade:
         if any(d.tipo == TipoDocumento.DESCONHECIDO for d in estado.documentos_entrada):
             self._notify("Classificando documentos...", 2, total_steps)
             t0 = time.time()
-            estado.documentos_entrada = classificar_documentos(
-                estado.documentos_entrada,
-                strict=self.fail_closed,
-                require_exactly_one_recurso=REQUIRE_EXACTLY_ONE_RECURSO,
-                min_acordaos=MIN_ACORDAO_COUNT,
-                manual_review_mode=ENABLE_CLASSIFICATION_MANUAL_REVIEW,
-                manual_review_confidence_threshold=(
-                    CLASSIFICATION_MANUAL_REVIEW_CONFIDENCE_THRESHOLD
-                ),
-                manual_review_margin_threshold=(
-                    CLASSIFICATION_MANUAL_REVIEW_MARGIN_THRESHOLD
-                ),
-            )
+            llm_calls_start, llm_trunc_start = _snapshot_llm_tracker()
+            classificacao_erro = False
+            try:
+                estado.documentos_entrada = classificar_documentos(
+                    estado.documentos_entrada,
+                    strict=self.fail_closed,
+                    require_exactly_one_recurso=REQUIRE_EXACTLY_ONE_RECURSO,
+                    min_acordaos=MIN_ACORDAO_COUNT,
+                    manual_review_mode=ENABLE_CLASSIFICATION_MANUAL_REVIEW,
+                    manual_review_confidence_threshold=(
+                        CLASSIFICATION_MANUAL_REVIEW_CONFIDENCE_THRESHOLD
+                    ),
+                    manual_review_margin_threshold=(
+                        CLASSIFICATION_MANUAL_REVIEW_MARGIN_THRESHOLD
+                    ),
+                )
+            except Exception:
+                classificacao_erro = True
+                raise
+            finally:
+                _registrar_metricas_llm_etapa(
+                    "classificacao",
+                    llm_calls_start,
+                    llm_trunc_start,
+                    erro=classificacao_erro,
+                )
             self.metricas["tempo_classificacao"] = time.time() - t0
             _log_structured_event(
                 evento="classificacao_concluida",
@@ -807,6 +880,12 @@ class PipelineAdmissibilidade:
             )
             salvar_estado(estado, processo_id)
         elif self.fail_closed:
+            _registrar_metricas_llm_etapa(
+                "classificacao",
+                token_tracker.total_calls,
+                token_tracker.total_truncated_calls,
+                erro=False,
+            )
             validar_classificacao_documentos(
                 estado.documentos_entrada,
                 strict=True,
@@ -891,6 +970,7 @@ class PipelineAdmissibilidade:
         if estado.resultado_etapa1 is None:
             self._notify("Etapa 1 — Analisando recurso...", 3, total_steps)
             t0 = time.time()
+            llm_calls_start, llm_trunc_start = _snapshot_llm_tracker()
             # Record model used
             estado.metadata.modelos_utilizados["Etapa 1"] = MODEL_LEGAL_ANALYSIS
             etapa1_chunking_audit: dict[str, Any] = {}
@@ -958,6 +1038,12 @@ class PipelineAdmissibilidade:
                         "motivo_bloqueio_descricao": estado.metadata.motivo_bloqueio_descricao,
                     },
                 )
+                _registrar_metricas_llm_etapa(
+                    "etapa1",
+                    llm_calls_start,
+                    llm_trunc_start,
+                    erro=True,
+                )
                 raise PipelineValidationError(
                     f"MOTIVO_BLOQUEIO[{estado.metadata.motivo_bloqueio_codigo}] "
                     + estado.metadata.motivo_bloqueio_descricao
@@ -966,6 +1052,12 @@ class PipelineAdmissibilidade:
             if self.fail_closed:
                 erros_e1 = _validar_etapa1(estado.resultado_etapa1)
                 if erros_e1:
+                    _registrar_metricas_llm_etapa(
+                        "etapa1",
+                        llm_calls_start,
+                        llm_trunc_start,
+                        erro=True,
+                    )
                     raise PipelineValidationError(" ".join(erros_e1))
 
             self.metricas["tempo_etapa1"] = time.time() - t0
@@ -977,6 +1069,12 @@ class PipelineAdmissibilidade:
                 extra={"duracao_s": round(self.metricas["tempo_etapa1"], 3)},
             )
             salvar_estado(estado, processo_id)
+            _registrar_metricas_llm_etapa(
+                "etapa1",
+                llm_calls_start,
+                llm_trunc_start,
+                erro=False,
+            )
 
         # E1-005: always block Etapa 2 when Etapa 1 is marked inconclusive.
         if estado.resultado_etapa1 and estado.resultado_etapa1.inconclusivo:
@@ -1005,6 +1103,7 @@ class PipelineAdmissibilidade:
         if estado.resultado_etapa2 is None:
             self._notify("Etapa 2 — Analisando acórdão...", 4, total_steps)
             t0 = time.time()
+            llm_calls_start, llm_trunc_start = _snapshot_llm_tracker()
             # Record model used
             estado.metadata.modelos_utilizados["Etapa 2"] = MODEL_LEGAL_ANALYSIS
             etapa2_chunking_audit: dict[str, Any] = {}
@@ -1079,6 +1178,12 @@ class PipelineAdmissibilidade:
                         "motivo_bloqueio_descricao": estado.metadata.motivo_bloqueio_descricao,
                     },
                 )
+                _registrar_metricas_llm_etapa(
+                    "etapa2",
+                    llm_calls_start,
+                    llm_trunc_start,
+                    erro=True,
+                )
                 raise PipelineValidationError(
                     f"MOTIVO_BLOQUEIO[{estado.metadata.motivo_bloqueio_codigo}] "
                     + estado.metadata.motivo_bloqueio_descricao
@@ -1093,6 +1198,12 @@ class PipelineAdmissibilidade:
                 extra={"duracao_s": round(self.metricas["tempo_etapa2"], 3)},
             )
             salvar_estado(estado, processo_id)
+            _registrar_metricas_llm_etapa(
+                "etapa2",
+                llm_calls_start,
+                llm_trunc_start,
+                erro=False,
+            )
 
         if self.fail_closed and estado.resultado_etapa2 is not None:
             erros_e2 = _validar_etapa2(estado.resultado_etapa2)
@@ -1102,6 +1213,7 @@ class PipelineAdmissibilidade:
                     "E2_VALIDACAO_FAIL",
                     "; ".join(erros_e2),
                 )
+                llm_metricas_por_etapa["etapa2"]["llm_taxa_erro"] = 1.0
                 _log_structured_event(
                     evento="pipeline_bloqueado",
                     processo_id=processo_id,
@@ -1118,6 +1230,7 @@ class PipelineAdmissibilidade:
         if estado.resultado_etapa3 is None:
             self._notify("Etapa 3 — Gerando minuta...", 5, total_steps)
             t0 = time.time()
+            llm_calls_start, llm_trunc_start = _snapshot_llm_tracker()
             # Record model used
             estado.metadata.modelos_utilizados["Etapa 3"] = MODEL_DRAFT_GENERATION
             etapa3_chunking_audit: dict[str, Any] = {}
@@ -1188,6 +1301,12 @@ class PipelineAdmissibilidade:
                         "motivo_bloqueio_descricao": estado.metadata.motivo_bloqueio_descricao,
                     },
                 )
+                _registrar_metricas_llm_etapa(
+                    "etapa3",
+                    llm_calls_start,
+                    llm_trunc_start,
+                    erro=True,
+                )
                 raise PipelineValidationError(
                     f"MOTIVO_BLOQUEIO[{estado.metadata.motivo_bloqueio_codigo}] "
                     + estado.metadata.motivo_bloqueio_descricao
@@ -1211,6 +1330,12 @@ class PipelineAdmissibilidade:
                             "motivo_bloqueio_descricao": estado.metadata.motivo_bloqueio_descricao,
                         },
                     )
+                    _registrar_metricas_llm_etapa(
+                        "etapa3",
+                        llm_calls_start,
+                        llm_trunc_start,
+                        erro=True,
+                    )
                     raise PipelineValidationError(" ".join(erros_e3))
 
             self.metricas["tempo_etapa3"] = time.time() - t0
@@ -1229,6 +1354,12 @@ class PipelineAdmissibilidade:
                 },
             )
             salvar_estado(estado, processo_id)
+            _registrar_metricas_llm_etapa(
+                "etapa3",
+                llm_calls_start,
+                llm_trunc_start,
+                erro=False,
+            )
 
         # Step 6: Format and save output
         self._notify("Formatando e salvando resultados...", 6, total_steps)
@@ -1266,6 +1397,7 @@ class PipelineAdmissibilidade:
         self.metricas["llm_total_calls"] = token_tracker.total_calls
         self.metricas["llm_calls_truncadas"] = token_tracker.total_truncated_calls
         self.metricas["llm_latencia_media_ms"] = round(token_tracker.average_latency_ms, 2)
+        self.metricas["llm_metricas_por_etapa"] = llm_metricas_por_etapa
         self.metricas["prompt_profile"] = estado.metadata.prompt_profile
         self.metricas["prompt_version"] = estado.metadata.prompt_version
         self.metricas["prompt_hash_sha256"] = estado.metadata.prompt_hash_sha256
@@ -1286,6 +1418,7 @@ class PipelineAdmissibilidade:
             "total_calls": float(token_tracker.total_calls),
             "calls_truncadas": float(token_tracker.total_truncated_calls),
             "latencia_media_ms": round(token_tracker.average_latency_ms, 2),
+            "metricas_por_etapa": llm_metricas_por_etapa,
         }
 
         alertas_validacao_auditoria: list[str] = []

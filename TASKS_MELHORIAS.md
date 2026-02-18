@@ -145,7 +145,7 @@
 - [ ] **LLM-002** Incluir validação de schema já na resposta (quando suportado).
 - [ ] **LLM-003** Implementar idempotência por `request_id` e reexecução segura.
 - [x] **LLM-004** Isolar cache por versão de prompt, modelo e schema.
-- [ ] **LLM-005** Registrar latência, retries, truncamentos e taxa de erro por etapa.
+- [x] **LLM-005** Registrar latência, retries, truncamentos e taxa de erro por etapa.
 - [ ] **LLM-006** Opcional: consenso N=2 para campos críticos em casos de baixa confiança.
 
 ## 8) Prompt e Governança de Versão (P1)
