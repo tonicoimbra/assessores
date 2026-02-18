@@ -20,6 +20,20 @@ logger = logging.getLogger("assessor_ai")
 
 INCONCLUSIVO_WARNING_TEXT = "Decisão jurídica inconclusiva: Requer análise adicional."
 MOTIVO_BLOQUEIO_E3_INCONCLUSIVO = "E3_INCONCLUSIVO"
+ETAPA3_RESPONSE_SCHEMA: dict = {
+    "type": "object",
+    "properties": {
+        "minuta_completa": {"type": "string"},
+        "decisao": {"type": "string", "enum": ["ADMITIDO", "INADMITIDO", "INCONCLUSIVO"]},
+        "fundamentos_decisao": {"type": "array", "items": {"type": "string"}},
+        "itens_evidencia_usados": {"type": "array", "items": {"type": "string"}},
+        "aviso_inconclusivo": {"type": "boolean"},
+        "motivo_bloqueio_codigo": {"type": "string"},
+        "motivo_bloqueio_descricao": {"type": "string"},
+    },
+    "required": ["minuta_completa", "decisao"],
+    "additionalProperties": True,
+}
 
 
 class Etapa3Error(Exception):
@@ -696,6 +710,8 @@ def executar_etapa3(
                 max_tokens=MAX_TOKENS_ETAPA3,
                 temperature=0.0,
                 use_cache=False,
+                response_schema=ETAPA3_RESPONSE_SCHEMA,
+                schema_name="etapa3_resultado",
             )
             resultado_struct = _resultado_etapa3_from_json(payload)
             if resultado_struct.minuta_completa:

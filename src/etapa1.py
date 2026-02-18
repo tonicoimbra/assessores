@@ -28,6 +28,34 @@ CRITICAL_FIELDS_ETAPA1: tuple[str, ...] = (
     "especie_recurso",
 )
 ETAPA1_STRUCTURED_MAX_ATTEMPTS = 3
+ETAPA1_RESPONSE_SCHEMA: dict = {
+    "type": "object",
+    "properties": {
+        "numero_processo": {"type": "string"},
+        "recorrente": {"type": "string"},
+        "recorrido": {"type": "string"},
+        "especie_recurso": {"type": "string"},
+        "permissivo_constitucional": {"type": "string"},
+        "camara_civel": {"type": "string"},
+        "dispositivos_violados": {"type": "array", "items": {"type": "string"}},
+        "justica_gratuita": {"type": "boolean"},
+        "efeito_suspensivo": {"type": "boolean"},
+        "evidencias_campos": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "citacao_literal": {"type": "string"},
+                    "pagina": {"type": ["integer", "null"]},
+                    "ancora": {"type": "string"},
+                    "offset_inicio": {"type": ["integer", "null"]},
+                },
+            },
+        },
+    },
+    "required": ["numero_processo", "recorrente", "especie_recurso"],
+    "additionalProperties": True,
+}
 
 
 # --- 3.3.3 Token estimation ---
@@ -756,6 +784,8 @@ def _converter_texto_livre_para_resultado_etapa1(
             temperature=0.0,
             max_tokens=MAX_TOKENS_INTERMEDIATE,
             use_cache=False,
+            response_schema=ETAPA1_RESPONSE_SCHEMA,
+            schema_name="etapa1_resultado",
         )
         if isinstance(payload, dict):
             return _resultado_etapa1_from_json(payload)
@@ -885,6 +915,8 @@ def executar_etapa1(
                 max_tokens=MAX_TOKENS_ETAPA1,
                 temperature=0.0,
                 use_cache=False,
+                response_schema=ETAPA1_RESPONSE_SCHEMA,
+                schema_name="etapa1_resultado",
             )
             candidato = _resultado_etapa1_from_json(payload)
             _enriquecer_evidencias_campos_criticos(candidato, texto_recurso_original)

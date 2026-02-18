@@ -525,6 +525,9 @@ def chamar_llm_json(
     user_message: str | None = None,
     *,
     messages: list[ChatMessage] | None = None,
+    response_schema: dict | None = None,
+    schema_name: str = "structured_response",
+    schema_strict: bool = True,
     **kwargs,
 ) -> dict:
     """
@@ -536,13 +539,47 @@ def chamar_llm_json(
     Raises:
         LLMError: If response is not valid JSON.
     """
-    response = chamar_llm_with_rate_limit(
-        system_prompt=system_prompt,
-        user_message=user_message,
-        messages=messages,
-        response_format={"type": "json_object"},
-        **kwargs,
-    )
+    response_format: dict = {"type": "json_object"}
+    if isinstance(response_schema, dict) and response_schema:
+        response_format = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": schema_name,
+                "strict": bool(schema_strict),
+                "schema": response_schema,
+            },
+        }
+
+    try:
+        response = chamar_llm_with_rate_limit(
+            system_prompt=system_prompt,
+            user_message=user_message,
+            messages=messages,
+            response_format=response_format,
+            **kwargs,
+        )
+    except Exception as e:
+        raw_message = str(e).lower()
+        unsupported_schema = (
+            bool(response_schema)
+            and "schema" in raw_message
+            and ("unsupported" in raw_message or "response_format" in raw_message)
+        )
+        if not unsupported_schema:
+            raise
+
+        logger.warning(
+            "response_format=json_schema não suportado pelo provider/modelo atual; "
+            "fallback para json_object. erro=%s",
+            e,
+        )
+        response = chamar_llm_with_rate_limit(
+            system_prompt=system_prompt,
+            user_message=user_message,
+            messages=messages,
+            response_format={"type": "json_object"},
+            **kwargs,
+        )
 
     try:
         return json.loads(response.content)

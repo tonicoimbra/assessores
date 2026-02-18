@@ -37,6 +37,40 @@ ETAPA2_DEDUP_STOPWORDS: set[str] = {
     "no", "na", "nos", "nas", "por", "para", "com", "sem", "em",
     "que", "sobre", "ao", "aos", "à", "às",
 }
+ETAPA2_RESPONSE_SCHEMA: dict = {
+    "type": "object",
+    "properties": {
+        "temas": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "materia_controvertida": {"type": "string"},
+                    "conclusao_fundamentos": {"type": "string"},
+                    "base_vinculante": {"type": "string"},
+                    "obices_sumulas": {"type": "array", "items": {"type": "string"}},
+                    "trecho_transcricao": {"type": "string"},
+                    "evidencias_campos": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                                "citacao_literal": {"type": "string"},
+                                "pagina": {"type": ["integer", "null"]},
+                                "ancora": {"type": "string"},
+                                "offset_inicio": {"type": ["integer", "null"]},
+                            },
+                        },
+                    },
+                },
+                "required": ETAPA2_REQUIRED_THEME_FIELDS,
+                "additionalProperties": True,
+            },
+        },
+    },
+    "required": ["temas"],
+    "additionalProperties": True,
+}
 
 
 # --- 4.2 Theme parsing ---
@@ -844,6 +878,8 @@ def executar_etapa2(
                 max_tokens=MAX_TOKENS_ETAPA2,
                 temperature=0.0,
                 use_cache=False,
+                response_schema=ETAPA2_RESPONSE_SCHEMA,
+                schema_name="etapa2_resultado",
             )
             resultado = _resultado_etapa2_from_json(payload)
             logger.info("Etapa 2 estruturada (JSON) concluída com sucesso na tentativa %d.", attempt)

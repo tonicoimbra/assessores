@@ -142,7 +142,7 @@
 ## 7) Cliente LLM e Robustez de Chamada (P0)
 
 - [x] **LLM-001** Tratar `finish_reason != stop` como erro recuperável com retry automático.
-- [ ] **LLM-002** Incluir validação de schema já na resposta (quando suportado).
+- [x] **LLM-002** Incluir validação de schema já na resposta (quando suportado).
 - [ ] **LLM-003** Implementar idempotência por `request_id` e reexecução segura.
 - [x] **LLM-004** Isolar cache por versão de prompt, modelo e schema.
 - [x] **LLM-005** Registrar latência, retries, truncamentos e taxa de erro por etapa.

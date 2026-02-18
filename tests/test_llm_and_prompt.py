@@ -263,6 +263,59 @@ class TestChamarLLM:
 
         assert mock_client.chat.completions.create.call_count == 2
 
+    @patch("src.llm_client.chamar_llm_with_rate_limit")
+    def test_chamar_llm_json_uses_json_schema_when_provided(self, mock_call) -> None:
+        mock_call.return_value = LLMResponse(
+            content='{"numero_processo":"123"}',
+            tokens=TokenUsage(total_tokens=10),
+            model="gpt-4o-mini",
+            finish_reason="stop",
+        )
+        from src.llm_client import chamar_llm_json
+
+        schema = {
+            "type": "object",
+            "properties": {"numero_processo": {"type": "string"}},
+            "required": ["numero_processo"],
+        }
+        payload = chamar_llm_json(
+            "system",
+            "user",
+            response_schema=schema,
+            schema_name="etapa1_resultado",
+        )
+
+        assert payload["numero_processo"] == "123"
+        assert mock_call.call_count == 1
+        response_format = mock_call.call_args.kwargs["response_format"]
+        assert response_format["type"] == "json_schema"
+        assert response_format["json_schema"]["name"] == "etapa1_resultado"
+        assert response_format["json_schema"]["schema"] == schema
+
+    @patch("src.llm_client.chamar_llm_with_rate_limit")
+    def test_chamar_llm_json_falls_back_to_json_object_when_schema_is_unsupported(self, mock_call) -> None:
+        mock_call.side_effect = [
+            LLMError("response_format json_schema unsupported"),
+            LLMResponse(
+                content='{"ok":true}',
+                tokens=TokenUsage(total_tokens=8),
+                model="gpt-4o-mini",
+                finish_reason="stop",
+            ),
+        ]
+        from src.llm_client import chamar_llm_json
+
+        payload = chamar_llm_json(
+            "system",
+            "user",
+            response_schema={"type": "object", "properties": {"ok": {"type": "boolean"}}},
+        )
+
+        assert payload["ok"] is True
+        assert mock_call.call_count == 2
+        assert mock_call.call_args_list[0].kwargs["response_format"]["type"] == "json_schema"
+        assert mock_call.call_args_list[1].kwargs["response_format"]["type"] == "json_object"
+
 
 # --- 2.4.6: Integration test (slow, requires API key) ---
 
