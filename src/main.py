@@ -13,6 +13,11 @@ from src.quality_gates import (
     load_baseline_payload,
     save_quality_gate_report,
 )
+from src.quality_streak import (
+    evaluate_quality_gate_streak,
+    list_quality_gate_reports,
+    save_quality_streak_report,
+)
 from src.regression_alerts import (
     evaluate_regression_alerts,
     find_previous_baseline_file,
@@ -255,6 +260,34 @@ def cmd_alerts(args: argparse.Namespace) -> None:
     print("✅ Sem regressão crítica.")
 
 
+def cmd_quality_streak(args: argparse.Namespace) -> None:
+    """Validate that quality gates passed in N consecutive runs."""
+    reports_dir = Path(args.reports_dir) if args.reports_dir else None
+    output_dir = Path(args.saida) if args.saida else None
+    min_runs = int(args.min_runs)
+
+    report_paths = list_quality_gate_reports(reports_dir)
+    report = evaluate_quality_gate_streak(
+        report_paths=report_paths,
+        min_runs=min_runs,
+    )
+    report_path = save_quality_streak_report(report, output_dir=output_dir)
+
+    print("\n📏 Sequência de quality-gate avaliada")
+    print(f"   Reports encontrados: {report['runs_available']}")
+    print(f"   Min runs exigido: {report['min_runs']}")
+    print(f"   Trailing pass streak: {report['trailing_pass_streak']}")
+    print(f"   Report: {report_path}")
+    if report["passed"]:
+        print("✅ Requisito de execuções consecutivas atendido.")
+        return
+
+    print("❌ Requisito de execuções consecutivas NÃO atendido.")
+    for err in report["errors"]:
+        print(f"   - {err}")
+    sys.exit(2)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI argument parser."""
     parser = argparse.ArgumentParser(
@@ -394,6 +427,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Diretório para salvar relatório de alertas (default: outputs/)",
     )
     al.set_defaults(func=cmd_alerts)
+
+    # quality-streak
+    qs = subparsers.add_parser(
+        "quality-streak",
+        help="Validar N quality-gates consecutivos aprovados",
+    )
+    qs.add_argument(
+        "--reports-dir",
+        default=None,
+        help="Diretório com quality_gate_report_*.json (default: outputs/)",
+    )
+    qs.add_argument(
+        "--min-runs",
+        type=int,
+        default=3,
+        help="Quantidade mínima de execuções consecutivas aprovadas (default: 3)",
+    )
+    qs.add_argument(
+        "--saida",
+        default=None,
+        help="Diretório para salvar relatório quality streak (default: outputs/)",
+    )
+    qs.set_defaults(func=cmd_quality_streak)
 
     return parser
 

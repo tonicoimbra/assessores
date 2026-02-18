@@ -56,11 +56,21 @@ Saída:
 O workflow `golden-regression.yml` executa:
 
 1. regressão ouro E2E
-2. geração de baseline
-3. avaliação de gate de qualidade
+2. geração de baseline + quality-gate em 3 execuções consecutivas
+3. validação automática da sequência via `quality-streak --min-runs 3`
 4. alertas automáticos de regressão de extração/decisão
 
 Se o gate reprovar, o job falha.
+
+Validação manual local equivalente:
+
+```bash
+for i in 1 2 3; do
+  python -m src.main baseline --entrada tests/fixtures/golden --saida outputs
+  python -m src.main quality-gate --baseline-dir outputs --saida outputs
+done
+python -m src.main quality-streak --reports-dir outputs --min-runs 3 --saida outputs
+```
 
 ## Alertas automáticos de regressão (OBS-004)
 

@@ -303,6 +303,24 @@ class TestCLIArgs:
         assert args.previous_baseline == "outputs/baseline_dataset_ouro_old.json"
         assert args.saida == "outputs"
 
+    def test_quality_streak_command(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "quality-streak",
+                "--reports-dir",
+                "outputs",
+                "--min-runs",
+                "3",
+                "--saida",
+                "outputs",
+            ]
+        )
+        assert args.comando == "quality-streak"
+        assert args.reports_dir == "outputs"
+        assert args.min_runs == 3
+        assert args.saida == "outputs"
+
     def test_no_command_exits(self) -> None:
         parser = build_parser()
         args = parser.parse_args([])

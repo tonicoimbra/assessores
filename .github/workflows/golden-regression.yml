@@ -30,13 +30,14 @@ jobs:
         run: |
           pytest -q -m golden tests/test_golden_e2e.py
 
-      - name: Generate baseline report
+      - name: Evaluate quality gate (3 consecutive runs)
         run: |
-          python -m src.main baseline --entrada tests/fixtures/golden --saida outputs
-
-      - name: Evaluate quality gate
-        run: |
-          python -m src.main quality-gate --baseline-dir outputs --saida outputs
+          for i in 1 2 3; do
+            echo "Run $i/3"
+            python -m src.main baseline --entrada tests/fixtures/golden --saida outputs
+            python -m src.main quality-gate --baseline-dir outputs --saida outputs
+          done
+          python -m src.main quality-streak --reports-dir outputs --min-runs 3 --saida outputs
 
       - name: Evaluate regression alerts
         if: always()
