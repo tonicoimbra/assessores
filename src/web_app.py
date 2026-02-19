@@ -119,8 +119,6 @@ def _run_pipeline_job(job_id: str, modelo: str, formato: str, recurso_path: str,
             "tempo": metricas.get("tempo_total", 0.0),
             "arquivo_minuta": metricas.get("arquivo_minuta", ""),
             "arquivo_auditoria": metricas.get("arquivo_auditoria", ""),
-            "download_minuta_url": _build_download_url(metricas.get("arquivo_minuta", "")),
-            "download_auditoria_url": _build_download_url(metricas.get("arquivo_auditoria", "")),
             "preview": resultado.minuta_completa[:2500],
         }
         with _JOBS_LOCK:
@@ -288,7 +286,12 @@ def resultado(job_id: str):
         return render_template("web/index.html", result=None, error=job["error"], default_model=job.get("modelo", _get_default_model()))
     if job["status"] != "done":
         return render_template("web/processing.html", job_id=job_id, default_model=job.get("modelo", _get_default_model()))
-    return render_template("web/index.html", result=job["result"], error=None, default_model=job.get("modelo", _get_default_model()))
+    # Generate fresh download tokens at request-time (not in background thread)
+    # This ensures the token exists in the same worker process handling the download
+    result_with_urls = dict(job["result"])
+    result_with_urls["download_minuta_url"] = _build_download_url(result_with_urls.get("arquivo_minuta", ""))
+    result_with_urls["download_auditoria_url"] = _build_download_url(result_with_urls.get("arquivo_auditoria", ""))
+    return render_template("web/index.html", result=result_with_urls, error=None, default_model=job.get("modelo", _get_default_model()))
 
 
 @app.get("/download")
