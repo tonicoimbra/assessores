@@ -52,15 +52,8 @@ ETAPA2_RESPONSE_SCHEMA: dict = {
                     "trecho_transcricao": {"type": "string"},
                     "evidencias_campos": {
                         "type": "object",
-                        "additionalProperties": {
-                            "type": "object",
-                            "properties": {
-                                "citacao_literal": {"type": "string"},
-                                "pagina": {"type": ["integer", "null"]},
-                                "ancora": {"type": "string"},
-                                "offset_inicio": {"type": ["integer", "null"]},
-                            },
-                        },
+                        "properties": {},
+                        "additionalProperties": False,
                     },
                 },
                 "required": ETAPA2_REQUIRED_THEME_FIELDS,

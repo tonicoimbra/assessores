@@ -44,15 +44,8 @@ ETAPA1_RESPONSE_SCHEMA: dict = {
         "efeito_suspensivo": {"type": "boolean"},
         "evidencias_campos": {
             "type": "object",
-            "additionalProperties": {
-                "type": "object",
-                "properties": {
-                    "citacao_literal": {"type": "string"},
-                    "pagina": {"type": ["integer", "null"]},
-                    "ancora": {"type": "string"},
-                    "offset_inicio": {"type": ["integer", "null"]},
-                },
-            },
+            "properties": {},
+            "additionalProperties": False,
         },
     },
     "required": ["numero_processo", "recorrente", "especie_recurso"],
