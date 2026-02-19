@@ -141,7 +141,7 @@ CACHE_TTL_HOURS: int = int(os.getenv("CACHE_TTL_HOURS", "24"))
 ETAPA2_PARALLEL_WORKERS: int = int(os.getenv("ETAPA2_PARALLEL_WORKERS", "3"))
 
 # Stage/token tuning
-MAX_TOKENS_INTERMEDIATE: int = int(os.getenv("MAX_TOKENS_INTERMEDIATE", "700"))
+MAX_TOKENS_INTERMEDIATE: int = int(os.getenv("MAX_TOKENS_INTERMEDIATE", "1500"))
 MAX_TOKENS_ETAPA1: int = int(os.getenv("MAX_TOKENS_ETAPA1", "1400"))
 MAX_TOKENS_ETAPA2: int = int(os.getenv("MAX_TOKENS_ETAPA2", "2200"))
 MAX_TOKENS_ETAPA3: int = int(os.getenv("MAX_TOKENS_ETAPA3", "3200"))

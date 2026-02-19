@@ -64,12 +64,12 @@ ETAPA2_RESPONSE_SCHEMA: dict = {
                     },
                 },
                 "required": ETAPA2_REQUIRED_THEME_FIELDS,
-                "additionalProperties": True,
+                "additionalProperties": False,
             },
         },
     },
     "required": ["temas"],
-    "additionalProperties": True,
+    "additionalProperties": False,
 }
 
 

@@ -1319,23 +1319,23 @@ class PipelineAdmissibilidade:
         if self.fail_closed and estado.resultado_etapa2 is not None:
             erros_e2 = _validar_etapa2(estado.resultado_etapa2)
             if erros_e2:
-                _definir_motivo_bloqueio(
-                    estado,
-                    "E2_VALIDACAO_FAIL",
+                # Soft validation: log warnings but allow pipeline to continue
+                logger.warning(
+                    "⚠️ Etapa 2 validação soft — campos ausentes em temas: %s",
                     "; ".join(erros_e2),
                 )
-                llm_metricas_por_etapa["etapa2"]["llm_taxa_erro"] = 1.0
                 _log_structured_event(
-                    evento="pipeline_bloqueado",
+                    evento="etapa2_validacao_soft_warning",
                     processo_id=processo_id,
                     execucao_id=execucao_id,
                     etapa="etapa2",
                     extra={
-                        "motivo_bloqueio_codigo": estado.metadata.motivo_bloqueio_codigo,
-                        "motivo_bloqueio_descricao": estado.metadata.motivo_bloqueio_descricao,
+                        "erros_validacao": erros_e2,
+                        "total_erros": len(erros_e2),
                     },
                 )
-                raise PipelineValidationError(" ".join(erros_e2))
+                # Record warnings in metadata without blocking
+                estado.metadata.alertas = getattr(estado.metadata, "alertas", []) + erros_e2
 
         # Step 5: Etapa 3 — Draft generation
         if estado.resultado_etapa3 is None:

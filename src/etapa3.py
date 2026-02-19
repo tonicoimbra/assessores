@@ -32,7 +32,7 @@ ETAPA3_RESPONSE_SCHEMA: dict = {
         "motivo_bloqueio_descricao": {"type": "string"},
     },
     "required": ["minuta_completa", "decisao"],
-    "additionalProperties": True,
+    "additionalProperties": False,
 }
 
 

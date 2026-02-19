@@ -56,7 +56,7 @@ ETAPA1_RESPONSE_SCHEMA: dict = {
         },
     },
     "required": ["numero_processo", "recorrente", "especie_recurso"],
-    "additionalProperties": True,
+    "additionalProperties": False,
 }
 
 
