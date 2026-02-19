@@ -95,6 +95,12 @@ def index():
     )
 
 
+@app.get("/healthz")
+def healthz():
+    """Lightweight health endpoint for orchestrators/load balancers."""
+    return {"status": "ok"}, 200
+
+
 @app.post("/processar")
 def processar():
     """Handle upload and execute pipeline."""

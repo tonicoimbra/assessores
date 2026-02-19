@@ -21,5 +21,7 @@ RUN useradd -m appuser \
 
 USER appuser
 
-# Rodar o servidor WEB como módulo para corrigir imports
-CMD ["python", "-m", "src.web_app"]
+EXPOSE 7860
+
+# WSGI server for production platforms (Coolify, Cloud Run, etc.)
+CMD ["sh", "-c", "gunicorn -w ${WEB_CONCURRENCY:-2} -k gthread --threads ${WEB_THREADS:-4} -b 0.0.0.0:${PORT:-7860} --timeout ${WEB_TIMEOUT:-120} src.web_app:app"]

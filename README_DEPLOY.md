@@ -82,6 +82,21 @@ Se você tiver muitas variáveis no `.env`, pode usar o script que criei para su
 
 ---
 
+## Opção 3: Coolify (Self-hosted)
+*Boa opção para deploy contínuo via Git/MCP em VPS própria.*
+
+Configuração mínima:
+1.  Source: repositório Git deste projeto.
+2.  Build Pack: `Dockerfile`.
+3.  Internal Port: `7860`.
+4.  Health Check Path: `/healthz`.
+5.  Environment Variables: `OPENAI_API_KEY` (ou `OPENROUTER_API_KEY` + `LLM_PROVIDER=openrouter`).
+6.  Volume persistente: montar em `/app/outputs`.
+
+Se o deploy ficar em loop/restart, o sintoma mais comum é comando de start incorreto. Neste projeto, o `Dockerfile` já inicia com `gunicorn` por padrão.
+
+---
+
 ## Observações Importantes
 *   **Persistência:** Em ambas as opções (camada gratuita), os arquivos gerados (PDFs, Markdown) são apagados quando o container reinicia. Para persistência real, seria necessário integrar com S3 ou Google Drive API (já temos clientes de Drive no projeto, basta ativar).
 *   **Porta:** A aplicação foi configurada para ler a variável `PORT` automaticamente, adaptando-se a qualquer ambiente.

@@ -18,6 +18,8 @@ python -m src.main processar /caminho/recurso.pdf /caminho/acordao.pdf
 
 ```bash
 docker compose build
+docker compose up -d
+curl -fsS http://localhost:7860/healthz
 docker compose run --rm app --help
 docker compose run --rm app status
 docker compose run --rm app limpar
@@ -59,6 +61,24 @@ Opção imediata no n8n:
 4. Ler saída em `outputs/` e enviar notificação (email/Slack/Drive).
 
 Quando a API HTTP da tarefa 7.5 estiver pronta, substituir o `Execute Command` por chamada direta de webhook.
+
+## 4) Deploy no Coolify (Dockerfile/Git via MCP)
+
+Configuração recomendada do serviço:
+- Build Pack: `Dockerfile`
+- Porta da aplicação: `7860` (interno)
+- Healthcheck path: `/healthz`
+- Variáveis obrigatórias: `OPENAI_API_KEY` (ou `OPENROUTER_API_KEY` + `LLM_PROVIDER=openrouter`)
+
+Checklist de diagnóstico rápido:
+1. Container reinicia imediatamente:
+   - validar se o comando de start está usando `gunicorn` (padrão do `Dockerfile` atual).
+2. `Unhealthy` no deploy:
+   - validar healthcheck em `http://SEU_DOMINIO/healthz`.
+3. Erro de API key na UI:
+   - conferir variáveis no painel do Coolify e redeploy.
+4. Falha de upload/download:
+   - montar volume persistente em `/app/outputs`.
 
 ## Validação executada (Sprint 7.4.3)
 
