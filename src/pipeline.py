@@ -1335,7 +1335,10 @@ class PipelineAdmissibilidade:
                     },
                 )
                 # Record warnings in metadata without blocking
-                estado.metadata.alertas = getattr(estado.metadata, "alertas", []) + erros_e2
+                try:
+                    estado.metadata.alertas.extend(erros_e2)
+                except (AttributeError, Exception):
+                    logger.debug("Campo alertas indisponível em MetadadosPipeline, apenas logando.")
 
         # Step 5: Etapa 3 — Draft generation
         if estado.resultado_etapa3 is None:
