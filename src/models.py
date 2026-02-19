@@ -158,6 +158,7 @@ class MetadadosPipeline(BaseModel):
     politica_escalonamento: dict[str, Any] = Field(default_factory=dict)
     classificacao_revisao_manual: dict[str, Any] = Field(default_factory=dict)
     chunking_auditoria: dict[str, Any] = Field(default_factory=dict)
+    alertas: list[str] = Field(default_factory=list)
     motivo_bloqueio_codigo: str = ""
     motivo_bloqueio_descricao: str = ""
 
