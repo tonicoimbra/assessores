@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from pathlib import Path
 from uuid import uuid4
 import os
 from typing import Any
 
-from flask import Flask, render_template, request, send_file
+from flask import Flask, jsonify, render_template, request, send_file
 from werkzeug.utils import secure_filename
 
 from src.config import (
@@ -33,6 +34,10 @@ app = Flask(
 UPLOADS_DIR = OUTPUTS_DIR / "web_uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 _DOWNLOAD_TOKENS: dict[str, dict[str, Any]] = {}
+
+# In-memory job store for async processing
+_JOBS: dict[str, dict[str, Any]] = {}
+_JOBS_LOCK = threading.Lock()
 
 
 def _get_api_key() -> str:
@@ -84,6 +89,69 @@ def _build_download_url(path: str) -> str:
     return f"/download?token={token}"
 
 
+def _purge_old_jobs() -> None:
+    """Remove completed jobs older than 30 minutes."""
+    cutoff = time.time() - 1800
+    with _JOBS_LOCK:
+        expired = [jid for jid, j in _JOBS.items() if j.get("finished_at", 0) and j["finished_at"] < cutoff]
+        for jid in expired:
+            _JOBS.pop(jid, None)
+
+
+def _run_pipeline_job(job_id: str, modelo: str, formato: str, recurso_path: str, acordao_paths: list[str], req_id: str, upload_dir: str) -> None:
+    """Execute pipeline in background thread and store result in _JOBS."""
+    try:
+        pipeline = PipelineAdmissibilidade(
+            modelo=modelo,
+            formato_saida=formato,
+        )
+        resultado = pipeline.executar(
+            pdfs=[recurso_path] + acordao_paths,
+            processo_id=f"web_{req_id}",
+            continuar=False,
+        )
+        metricas = pipeline.metricas
+
+        result_payload = {
+            "decisao": resultado.decisao.value if resultado.decisao else "N/A",
+            "tokens": metricas.get("tokens_totais", 0),
+            "custo": metricas.get("custo_estimado_usd", 0.0),
+            "tempo": metricas.get("tempo_total", 0.0),
+            "arquivo_minuta": metricas.get("arquivo_minuta", ""),
+            "arquivo_auditoria": metricas.get("arquivo_auditoria", ""),
+            "download_minuta_url": _build_download_url(metricas.get("arquivo_minuta", "")),
+            "download_auditoria_url": _build_download_url(metricas.get("arquivo_auditoria", "")),
+            "preview": resultado.minuta_completa[:2500],
+        }
+        with _JOBS_LOCK:
+            _JOBS[job_id]["status"] = "done"
+            _JOBS[job_id]["result"] = result_payload
+            _JOBS[job_id]["finished_at"] = time.time()
+    except Exception as exc:
+        pipeline_obj = locals().get("pipeline")
+        try:
+            handle_pipeline_error(
+                exc,
+                estado=getattr(pipeline_obj, "estado_atual", None),
+                processo_id=f"web_{req_id}",
+                metricas=getattr(pipeline_obj, "metricas", {}),
+                contexto={
+                    "origem": "web",
+                    "modelo": modelo,
+                    "formato_saida": formato,
+                    "output_dir": str(OUTPUTS_DIR),
+                    "upload_dir": upload_dir,
+                    "total_arquivos": 1 + len(acordao_paths),
+                },
+            )
+        except Exception:
+            pass
+        with _JOBS_LOCK:
+            _JOBS[job_id]["status"] = "error"
+            _JOBS[job_id]["error"] = _friendly_error(exc)
+            _JOBS[job_id]["finished_at"] = time.time()
+
+
 @app.get("/")
 def index():
     """Render upload page."""
@@ -103,7 +171,7 @@ def healthz():
 
 @app.post("/processar")
 def processar():
-    """Handle upload and execute pipeline."""
+    """Handle upload and start pipeline in background."""
     erros_env = validate_environment_settings()
     if erros_env:
         return render_template(
@@ -164,60 +232,63 @@ def processar():
     try:
         aplicar_politica_retencao()
     except Exception:
-        # Retention is best-effort in web mode.
         pass
 
-    try:
-        pipeline = PipelineAdmissibilidade(
-            modelo=modelo,
-            formato_saida=formato,
-        )
-        resultado = pipeline.executar(
-            pdfs=[str(recurso_path)] + acordao_paths,
-            processo_id=f"web_{req_id}",
-            continuar=False,
-        )
-        metricas = pipeline.metricas
-
-        result_payload = {
-            "decisao": resultado.decisao.value if resultado.decisao else "N/A",
-            "tokens": metricas.get("tokens_totais", 0),
-            "custo": metricas.get("custo_estimado_usd", 0.0),
-            "tempo": metricas.get("tempo_total", 0.0),
-            "arquivo_minuta": metricas.get("arquivo_minuta", ""),
-            "arquivo_auditoria": metricas.get("arquivo_auditoria", ""),
-            "download_minuta_url": _build_download_url(metricas.get("arquivo_minuta", "")),
-            "download_auditoria_url": _build_download_url(metricas.get("arquivo_auditoria", "")),
-            "preview": resultado.minuta_completa[:2500],
+    # Create job and start background processing
+    _purge_old_jobs()
+    job_id = uuid4().hex
+    with _JOBS_LOCK:
+        _JOBS[job_id] = {
+            "status": "processing",
+            "started_at": time.time(),
+            "result": None,
+            "error": None,
+            "finished_at": None,
+            "modelo": modelo,
         }
-        return render_template(
-            "web/index.html",
-            result=result_payload,
-            error=None,
-            default_model=modelo,
-        )
-    except Exception as exc:
-        pipeline_obj = locals().get("pipeline")
-        handle_pipeline_error(
-            exc,
-            estado=getattr(pipeline_obj, "estado_atual", None),
-            processo_id=f"web_{req_id}",
-            metricas=getattr(pipeline_obj, "metricas", {}),
-            contexto={
-                "origem": "web",
-                "modelo": modelo,
-                "formato_saida": formato,
-                "output_dir": str(OUTPUTS_DIR),
-                "upload_dir": str(upload_dir),
-                "total_arquivos": 1 + len(acordao_paths),
-            },
-        )
-        return render_template(
-            "web/index.html",
-            result=None,
-            error=_friendly_error(exc),
-            default_model=modelo,
-        ), 500
+
+    thread = threading.Thread(
+        target=_run_pipeline_job,
+        args=(job_id, modelo, formato, str(recurso_path), acordao_paths, req_id, str(upload_dir)),
+        daemon=True,
+    )
+    thread.start()
+
+    # Return processing page immediately (no Cloudflare timeout)
+    return render_template(
+        "web/processing.html",
+        job_id=job_id,
+        default_model=modelo,
+    )
+
+
+@app.get("/status/<job_id>")
+def job_status(job_id: str):
+    """AJAX endpoint to poll job status."""
+    with _JOBS_LOCK:
+        job = _JOBS.get(job_id)
+    if not job:
+        return jsonify({"status": "not_found"}), 404
+    return jsonify({
+        "status": job["status"],
+        "result": job.get("result"),
+        "error": job.get("error"),
+        "elapsed": round(time.time() - job["started_at"], 1),
+    })
+
+
+@app.get("/resultado/<job_id>")
+def resultado(job_id: str):
+    """Show result page when job is done."""
+    with _JOBS_LOCK:
+        job = _JOBS.get(job_id)
+    if not job:
+        return render_template("web/index.html", result=None, error="Job não encontrado.", default_model=_get_default_model()), 404
+    if job["status"] == "error":
+        return render_template("web/index.html", result=None, error=job["error"], default_model=job.get("modelo", _get_default_model()))
+    if job["status"] != "done":
+        return render_template("web/processing.html", job_id=job_id, default_model=job.get("modelo", _get_default_model()))
+    return render_template("web/index.html", result=job["result"], error=None, default_model=job.get("modelo", _get_default_model()))
 
 
 @app.get("/download")

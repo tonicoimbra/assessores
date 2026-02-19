@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Processando… | Assessor.AI</title>
+  <meta name="description" content="Sua análise está sendo processada">
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>">
+  <style>
+    .processing-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--spacing-xl);
+    }
+    .processing-card {
+      background: var(--card-bg, #fff);
+      border: 1px solid var(--border, #e5e7eb);
+      border-radius: 16px;
+      padding: 48px 40px;
+      text-align: center;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    .processing-spinner {
+      width: 56px;
+      height: 56px;
+      border: 4px solid var(--border, #e5e7eb);
+      border-top-color: var(--primary, #2563eb);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 24px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .processing-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary, #111827);
+      margin-bottom: 8px;
+    }
+    .processing-subtitle {
+      font-size: 0.95rem;
+      color: var(--text-secondary, #6b7280);
+      margin-bottom: 24px;
+    }
+    .processing-steps {
+      text-align: left;
+      margin: 24px 0;
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      font-size: 0.9rem;
+      color: var(--text-secondary, #6b7280);
+      transition: color 0.3s;
+    }
+    .step.active {
+      color: var(--primary, #2563eb);
+      font-weight: 600;
+    }
+    .step.done {
+      color: var(--success, #16a34a);
+    }
+    .step-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+    .step-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border, #e5e7eb);
+      flex-shrink: 0;
+      margin: 0 6px;
+    }
+    .step.active .step-dot {
+      background: var(--primary, #2563eb);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .step.done .step-dot {
+      background: var(--success, #16a34a);
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.7; }
+    }
+    .elapsed-time {
+      font-size: 0.85rem;
+      color: var(--text-secondary, #6b7280);
+      margin-top: 16px;
+    }
+    .error-box {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+      color: #dc2626;
+      font-size: 0.9rem;
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="processing-page">
+    <div class="processing-card">
+      <div class="processing-spinner" id="spinner"></div>
+      <div class="processing-title" id="title">Processando documentos…</div>
+      <div class="processing-subtitle" id="subtitle">Sua análise está em andamento</div>
+
+      <div class="processing-steps">
+        <div class="step active" id="step1">
+          <div class="step-dot"></div>
+          <span>Extraindo texto dos PDFs</span>
+        </div>
+        <div class="step" id="step2">
+          <div class="step-dot"></div>
+          <span>Etapa 1 — Analisando recurso</span>
+        </div>
+        <div class="step" id="step3">
+          <div class="step-dot"></div>
+          <span>Etapa 2 — Analisando acórdão</span>
+        </div>
+        <div class="step" id="step4">
+          <div class="step-dot"></div>
+          <span>Etapa 3 — Gerando minuta</span>
+        </div>
+        <div class="step" id="step5">
+          <div class="step-dot"></div>
+          <span>Finalizando relatório</span>
+        </div>
+      </div>
+
+      <div class="elapsed-time" id="elapsed">Tempo decorrido: 0s</div>
+
+      <div class="error-box" id="errorBox"></div>
+    </div>
+  </div>
+
+  <script>
+    const JOB_ID = "{{ job_id }}";
+    const POLL_INTERVAL = 3000;
+    let startTime = Date.now();
+
+    function updateElapsed() {
+      const secs = Math.round((Date.now() - startTime) / 1000);
+      const min = Math.floor(secs / 60);
+      const sec = secs % 60;
+      document.getElementById('elapsed').textContent =
+        min > 0 ? `Tempo decorrido: ${min}m ${sec}s` : `Tempo decorrido: ${sec}s`;
+    }
+
+    function updateSteps(elapsed) {
+      const steps = [
+        { id: 'step1', threshold: 0 },
+        { id: 'step2', threshold: 8 },
+        { id: 'step3', threshold: 45 },
+        { id: 'step4', threshold: 90 },
+        { id: 'step5', threshold: 140 },
+      ];
+      steps.forEach((step, i) => {
+        const el = document.getElementById(step.id);
+        const nextThreshold = steps[i + 1] ? steps[i + 1].threshold : Infinity;
+        if (elapsed >= nextThreshold) {
+          el.classList.remove('active');
+          el.classList.add('done');
+        } else if (elapsed >= step.threshold) {
+          el.classList.add('active');
+          el.classList.remove('done');
+        }
+      });
+    }
+
+    function poll() {
+      fetch(`/status/${JOB_ID}`)
+        .then(res => res.json())
+        .then(data => {
+          updateSteps(data.elapsed || 0);
+
+          if (data.status === 'done') {
+            window.location.href = `/resultado/${JOB_ID}`;
+            return;
+          }
+          if (data.status === 'error') {
+            document.getElementById('spinner').style.display = 'none';
+            document.getElementById('title').textContent = 'Erro na análise';
+            document.getElementById('subtitle').textContent = '';
+            const errorBox = document.getElementById('errorBox');
+            errorBox.textContent = data.error || 'Erro desconhecido no pipeline.';
+            errorBox.style.display = 'block';
+            return;
+          }
+          setTimeout(poll, POLL_INTERVAL);
+        })
+        .catch(() => {
+          setTimeout(poll, POLL_INTERVAL * 2);
+        });
+    }
+
+    setInterval(updateElapsed, 1000);
+    setTimeout(poll, POLL_INTERVAL);
+  </script>
+</body>
+</html>
