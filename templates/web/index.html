@@ -107,10 +107,13 @@
             <div class="form-group">
               <label class="form-label" for="modelo">Modelo IA</label>
               <select class="form-select" name="modelo" id="modelo">
+                <option value="qwen/qwen3-235b-a22b-2507" {% if default_model=="qwen/qwen3-235b-a22b-2507" %}selected{%
+                  endif %}>
+                  Qwen3 235B — Análise Jurídica Avançada ($0.07/M in, $0.46/M out)</option>
                 <option value="gpt-4.1" {% if default_model=="gpt-4.1" %}selected{% endif %}>
-                  GPT-4.1 — Análise Jurídica Avançada ($2.00/M in, $8.00/M out)</option>
+                  GPT-4.1 — OpenAI Premium ($2.00/M in, $8.00/M out)</option>
                 <option value="gpt-4.1-mini" {% if default_model=="gpt-4.1-mini" %}selected{% endif %}>
-                  GPT-4.1 Mini — Econômico e Rápido ($0.15/M in, $0.60/M out)</option>
+                  GPT-4.1 Mini — Econômico OpenAI ($0.15/M in, $0.60/M out)</option>
               </select>
             </div>
             <div class="form-group">
