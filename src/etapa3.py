@@ -3,6 +3,8 @@
 import logging
 import re
 
+from src.minuta_selector import selecionar_minuta_referencia
+
 from src.config import (
     ENABLE_CHUNKING,
     MAX_TOKENS_ETAPA3,
@@ -655,8 +657,40 @@ def executar_etapa3(
     # Context management for ruling text
     texto_acordao_ctx = _verificar_contexto(texto_acordao)
 
+    # --- Minuta de referência (few-shot) ---
+    # Extrai metadados da Etapa 2 para buscar a minuta mais similar na base gold.
+    tipo_recurso_ref = (
+        "recurso_especial" if "especial" in (resultado_etapa1.especie_recurso or "").lower()
+        else "recurso_extraordinario" if "extraordin" in (resultado_etapa1.especie_recurso or "").lower()
+        else ""
+    )
+    sumulas_ref: list[str] = []
+    materias_ref: list[str] = []
+    for tema in (resultado_etapa2.temas or []):
+        sumulas_ref.extend(getattr(tema, "obices_sumulas", []) or [])
+    decisao_estimada_ref = decisao_deterministica.value.lower() if decisao_deterministica else ""
+
+    minuta_referencia_texto = selecionar_minuta_referencia(
+        tipo_recurso=tipo_recurso_ref,
+        sumulas=sumulas_ref,
+        materias=materias_ref,
+        decisao_estimada=decisao_estimada_ref,
+    )
+
+    bloco_referencia = ""
+    if minuta_referencia_texto:
+        bloco_referencia = (
+            "--- MINUTA DE REFERÊNCIA (EXEMPLO DE ESTILO E FORMATO) ---\n"
+            "Use como referência de FORMATO, LINGUAGEM e ESTILO jurídico do TJPR.\n"
+            "NÃO copie dados ou fatos — adapte exclusivamente para o caso atual.\n"
+            "A decisão e os fundamentos devem vir SOMENTE das Etapas 1 e 2 abaixo.\n\n"
+            + minuta_referencia_texto
+            + "\n\n--- FIM DA MINUTA DE REFERÊNCIA ---\n\n"
+        )
+
     user_message = (
         ETAPA3_USER_INSTRUCTION
+        + bloco_referencia
         + "--- RESULTADO DA ETAPA 1 ---\n"
         + etapa1_resumo
         + "\n\n--- RESULTADO DA ETAPA 2 ---\n"
