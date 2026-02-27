@@ -1,0 +1,2982 @@
+[
+  {
+    "id": "00000250420268160156-1062890762",
+    "arquivo": "00000250420268160156-1062890762.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "preparo_deserção",
+      "tempestividade",
+      "acidente_transito"
+    ],
+    "numero_processo": "0000025-04.2026.8.16.0156",
+    "camara": "",
+    "chars": 4046,
+    "importado_em": "2026-02-27T17:53:15.391488",
+    "avaliacao": "pendente",
+    "notas_revisao": "",
+    "assessor_revisor": ""
+  },
+  {
+    "id": "00000354020268160191-1063391399",
+    "arquivo": "00000354020268160191-1063391399.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0000035-40.2026.8.16.0191",
+    "camara": "",
+    "chars": 1165,
+    "importado_em": "2026-02-27T17:53:15.398793",
+    "avaliacao": "pendente",
+    "notas_revisao": "",
+    "assessor_revisor": ""
+  },
+  {
+    "id": "00000485720268160185-1062975202",
+    "arquivo": "00000485720268160185-1062975202.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "283/STF",
+      "7/STJ"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "fundamentos_inatacados",
+      "preparo_deserção",
+      "execucao_fiscal"
+    ],
+    "numero_processo": "0000048-57.2026.8.16.0185",
+    "camara": "3ª Câmara Cível deste Tribunal de",
+    "chars": 3060,
+    "importado_em": "2026-02-27T17:53:15.407028",
+    "avaliacao": "pendente",
+    "notas_revisao": "",
+    "assessor_revisor": ""
+  },
+  {
+    "id": "00000795920268160191-1063391395",
+    "arquivo": "00000795920268160191-1063391395.pdf",
+    "tipo_recurso": "recurso_extraordinario",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0000079-59.2026.8.16.0191",
+    "camara": "",
+    "chars": 1181,
+    "importado_em": "2026-02-27T17:53:15.414631",
+    "avaliacao": "pendente",
+    "notas_revisao": "",
+    "assessor_revisor": ""
+  },
+  {
+    "id": "00000904520268160173-1063384995",
+    "arquivo": "00000904520268160173-1063384995.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "tempestividade",
+      "responsabilidade_civil"
+    ],
+    "numero_processo": "0000090-45.2026.8.16.0173",
+    "camara": "",
+    "chars": 1183,
+    "importado_em": "2026-02-27T17:53:15.422063",
+    "avaliacao": "pendente",
+    "notas_revisao": "",
+    "assessor_revisor": ""
+  },
+  {
+    "id": "00000911720268160048-1062890842",
+    "arquivo": "00000911720268160048-1062890842.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [
+      "115"
+    ],
+    "materias": [],
+    "numero_processo": "0000091-17.2026.8.16.0048",
+    "camara": "",
+    "chars": 1219,
+    "importado_em": "2026-02-27T17:53:15.429070",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00000913020268160173-1063384996",
+    "arquivo": "00000913020268160173-1063384996.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "tempestividade",
+      "responsabilidade_civil"
+    ],
+    "numero_processo": "0000091-30.2026.8.16.0173",
+    "camara": "",
+    "chars": 1183,
+    "importado_em": "2026-02-27T17:53:15.435585",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00000977120268160097-1062957093",
+    "arquivo": "00000977120268160097-1062957093.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "tempestividade"
+    ],
+    "numero_processo": "0000097-71.2026.8.16.0097",
+    "camara": "",
+    "chars": 1311,
+    "importado_em": "2026-02-27T17:53:15.442843",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00001273520268160153-1062890813",
+    "arquivo": "00001273520268160153-1062890813.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "tempestividade",
+      "responsabilidade_civil"
+    ],
+    "numero_processo": "0000127-35.2026.8.16.0153",
+    "camara": "",
+    "chars": 1459,
+    "importado_em": "2026-02-27T17:53:15.450221",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00001308720268160153-1062891725",
+    "arquivo": "00001308720268160153-1062891725.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "preparo_deserção",
+      "responsabilidade_civil"
+    ],
+    "numero_processo": "0000130-87.2026.8.16.0153",
+    "camara": "",
+    "chars": 3291,
+    "importado_em": "2026-02-27T17:53:15.458048",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00001317220268160153-1063410994",
+    "arquivo": "00001317220268160153-1063410994.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "preparo_deserção",
+      "acidente_transito"
+    ],
+    "numero_processo": "0000131-72.2026.8.16.0153",
+    "camara": "",
+    "chars": 1521,
+    "importado_em": "2026-02-27T17:53:15.465692",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00001391120268160004-1062814409",
+    "arquivo": "00001391120268160004-1062814409.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000139-11.2026.8.16.0004",
+    "camara": "",
+    "chars": 1175,
+    "importado_em": "2026-02-27T17:53:15.473675",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00001636820268160059-1063410989",
+    "arquivo": "00001636820268160059-1063410989.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "7"
+    ],
+    "materias": [],
+    "numero_processo": "0000163-68.2026.8.16.0059",
+    "camara": "",
+    "chars": 2351,
+    "importado_em": "2026-02-27T17:53:15.481891",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00001655420268160086-1063369200",
+    "arquivo": "00001655420268160086-1063369200.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000165-54.2026.8.16.0086",
+    "camara": "",
+    "chars": 1129,
+    "importado_em": "2026-02-27T17:53:15.488031",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00001772320268160004-1063292213",
+    "arquivo": "00001772320268160004-1063292213.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000177-23.2026.8.16.0004",
+    "camara": "",
+    "chars": 1368,
+    "importado_em": "2026-02-27T17:53:15.496043",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00002058820268160004-1062890398",
+    "arquivo": "00002058820268160004-1062890398.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000205-88.2026.8.16.0004",
+    "camara": "",
+    "chars": 1164,
+    "importado_em": "2026-02-27T17:53:15.506748",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00002197220268160004-1062890391",
+    "arquivo": "00002197220268160004-1062890391.pdf",
+    "tipo_recurso": "recurso_extraordinario",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000219-72.2026.8.16.0004",
+    "camara": "",
+    "chars": 1180,
+    "importado_em": "2026-02-27T17:53:15.512919",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00002603020268160007-1063291981",
+    "arquivo": "00002603020268160007-1063291981.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000260-30.2026.8.16.0007",
+    "camara": "",
+    "chars": 1166,
+    "importado_em": "2026-02-27T17:53:15.521511",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00002967520268160103-1062926877",
+    "arquivo": "00002967520268160103-1062926877.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "preparo_deserção"
+    ],
+    "numero_processo": "0000296-75.2026.8.16.0103",
+    "camara": "",
+    "chars": 2298,
+    "importado_em": "2026-02-27T17:53:15.528383",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00003248320268160122-1063292268",
+    "arquivo": "00003248320268160122-1063292268.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000324-83.2026.8.16.0122",
+    "camara": "",
+    "chars": 1173,
+    "importado_em": "2026-02-27T17:53:15.535741",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00003310620268160145-1062813652",
+    "arquivo": "00003310620268160145-1062813652.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000331-06.2026.8.16.0145",
+    "camara": "",
+    "chars": 1214,
+    "importado_em": "2026-02-27T17:53:15.545259",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00003352020268160185-1063167912",
+    "arquivo": "00003352020268160185-1063167912.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [
+      "execucao_fiscal"
+    ],
+    "numero_processo": "0000335-20.2026.8.16.0185",
+    "camara": "",
+    "chars": 1168,
+    "importado_em": "2026-02-27T17:53:15.553259",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00003354820268160111-1062813656",
+    "arquivo": "00003354820268160111-1062813656.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000335-48.2026.8.16.0111",
+    "camara": "",
+    "chars": 1164,
+    "importado_em": "2026-02-27T17:53:15.560547",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00003512820268160167-1062813638",
+    "arquivo": "00003512820268160167-1062813638.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000351-28.2026.8.16.0167",
+    "camara": "",
+    "chars": 1193,
+    "importado_em": "2026-02-27T17:53:15.569628",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00003566020268160099-1063291991",
+    "arquivo": "00003566020268160099-1063291991.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000356-60.2026.8.16.0099",
+    "camara": "",
+    "chars": 1174,
+    "importado_em": "2026-02-27T17:53:15.577438",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00003573720268160134-1062957062",
+    "arquivo": "00003573720268160134-1062957062.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000357-37.2026.8.16.0134",
+    "camara": "",
+    "chars": 1084,
+    "importado_em": "2026-02-27T17:53:15.583951",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00004005420268160075-1062946299",
+    "arquivo": "00004005420268160075-1062946299.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000400-54.2026.8.16.0075",
+    "camara": "",
+    "chars": 1188,
+    "importado_em": "2026-02-27T17:53:15.590274",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00004316720108160194-1063411006",
+    "arquivo": "00004316720108160194-1063411006.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000431-67.2010.8.16.0194",
+    "camara": "",
+    "chars": 1000,
+    "importado_em": "2026-02-27T17:53:15.597593",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00004443420268160185-1062813616",
+    "arquivo": "00004443420268160185-1062813616.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [
+      "execucao_fiscal"
+    ],
+    "numero_processo": "0000444-34.2026.8.16.0185",
+    "camara": "",
+    "chars": 1168,
+    "importado_em": "2026-02-27T17:53:15.605000",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00004648620268160100-1062705030",
+    "arquivo": "00004648620268160100-1062705030.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "7",
+      "7/STJ"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0000464-86.2026.8.16.0100",
+    "camara": "10ª Câmara Cível",
+    "chars": 10022,
+    "importado_em": "2026-02-27T17:53:15.615685",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00004818220268160081-1062946330",
+    "arquivo": "00004818220268160081-1062946330.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000481-82.2026.8.16.0081",
+    "camara": "",
+    "chars": 1180,
+    "importado_em": "2026-02-27T17:53:15.622864",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00005172120268160083-1063292187",
+    "arquivo": "00005172120268160083-1063292187.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000517-21.2026.8.16.0083",
+    "camara": "",
+    "chars": 1208,
+    "importado_em": "2026-02-27T17:53:15.629181",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00005413120268160186-1063167903",
+    "arquivo": "00005413120268160186-1063167903.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000541-31.2026.8.16.0186",
+    "camara": "",
+    "chars": 1190,
+    "importado_em": "2026-02-27T17:53:15.635392",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00005532220268160129-1063292263",
+    "arquivo": "00005532220268160129-1063292263.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000553-22.2026.8.16.0129",
+    "camara": "",
+    "chars": 1193,
+    "importado_em": "2026-02-27T17:53:15.643425",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00005567920268160095-1063292255",
+    "arquivo": "00005567920268160095-1063292255.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000556-79.2026.8.16.0095",
+    "camara": "",
+    "chars": 1196,
+    "importado_em": "2026-02-27T17:53:15.649874",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00005743820268160148-1063391400",
+    "arquivo": "00005743820268160148-1063391400.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000574-38.2026.8.16.0148",
+    "camara": "",
+    "chars": 1174,
+    "importado_em": "2026-02-27T17:53:15.658727",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00005940720268160026-1062813547",
+    "arquivo": "00005940720268160026-1062813547.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [
+      "responsabilidade_civil"
+    ],
+    "numero_processo": "0000594-07.2026.8.16.0026",
+    "camara": "",
+    "chars": 1184,
+    "importado_em": "2026-02-27T17:53:15.665454",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00006060720268160160-1063321536",
+    "arquivo": "00006060720268160160-1063321536.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000606-07.2026.8.16.0160",
+    "camara": "",
+    "chars": 1260,
+    "importado_em": "2026-02-27T17:53:15.672736",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00006328420268160069-1063292259",
+    "arquivo": "00006328420268160069-1063292259.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000632-84.2026.8.16.0069",
+    "camara": "",
+    "chars": 1218,
+    "importado_em": "2026-02-27T17:53:15.679148",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00006341420268160147-1062946237",
+    "arquivo": "00006341420268160147-1062946237.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000634-14.2026.8.16.0147",
+    "camara": "",
+    "chars": 1219,
+    "importado_em": "2026-02-27T17:53:15.687759",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00006506420268160115-1062957108",
+    "arquivo": "00006506420268160115-1062957108.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [
+      "tempestividade"
+    ],
+    "numero_processo": "0000650-64.2026.8.16.0115",
+    "camara": "",
+    "chars": 1935,
+    "importado_em": "2026-02-27T17:53:15.694629",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00006744920268160194-1062705025",
+    "arquivo": "00006744920268160194-1062705025.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000674-49.2026.8.16.0194",
+    "camara": "",
+    "chars": 1203,
+    "importado_em": "2026-02-27T17:53:15.700896",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00006833020258160102-1063146688",
+    "arquivo": "00006833020258160102-1063146688.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "desconhecido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000683-30.2025.8.16.0102",
+    "camara": "",
+    "chars": 1694,
+    "importado_em": "2026-02-27T17:53:15.707543",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00007206020268160025-1063292200",
+    "arquivo": "00007206020268160025-1063292200.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000720-60.2026.8.16.0025",
+    "camara": "",
+    "chars": 1359,
+    "importado_em": "2026-02-27T17:53:15.713825",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00007566820268160004-1063321541",
+    "arquivo": "00007566820268160004-1063321541.pdf",
+    "tipo_recurso": "recurso_extraordinario",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000756-68.2026.8.16.0004",
+    "camara": "",
+    "chars": 1176,
+    "importado_em": "2026-02-27T17:53:15.721557",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00007585020268160194-1063130333",
+    "arquivo": "00007585020268160194-1063130333.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "tempestividade"
+    ],
+    "numero_processo": "0000758-50.2026.8.16.0194",
+    "camara": "",
+    "chars": 1187,
+    "importado_em": "2026-02-27T17:53:15.728419",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00007593520268160194-1063130308",
+    "arquivo": "00007593520268160194-1063130308.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "tempestividade"
+    ],
+    "numero_processo": "0000759-35.2026.8.16.0194",
+    "camara": "",
+    "chars": 1187,
+    "importado_em": "2026-02-27T17:53:15.737189",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00007625020268160077-1062813604",
+    "arquivo": "00007625020268160077-1062813604.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000762-50.2026.8.16.0077",
+    "camara": "",
+    "chars": 1181,
+    "importado_em": "2026-02-27T17:53:15.744264",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00008344920268160170-1063292151",
+    "arquivo": "00008344920268160170-1063292151.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000834-49.2026.8.16.0170",
+    "camara": "",
+    "chars": 1199,
+    "importado_em": "2026-02-27T17:53:15.750621",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00008494320268160000-1063152052",
+    "arquivo": "00008494320268160000-1063152052.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000849-43.2026.8.16.0000",
+    "camara": "",
+    "chars": 1295,
+    "importado_em": "2026-02-27T17:53:15.760520",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00008538020268160194-1062981084",
+    "arquivo": "00008538020268160194-1062981084.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "tempestividade"
+    ],
+    "numero_processo": "0000853-80.2026.8.16.0194",
+    "camara": "",
+    "chars": 1195,
+    "importado_em": "2026-02-27T17:53:15.767124",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00008701720268160130-1062814216",
+    "arquivo": "00008701720268160130-1062814216.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000870-17.2026.8.16.0130",
+    "camara": "",
+    "chars": 1229,
+    "importado_em": "2026-02-27T17:53:15.774036",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00008754120268160097-1062946313",
+    "arquivo": "00008754120268160097-1062946313.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000875-41.2026.8.16.0097",
+    "camara": "",
+    "chars": 1197,
+    "importado_em": "2026-02-27T17:53:15.780022",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00008771120268160097-1062813629",
+    "arquivo": "00008771120268160097-1062813629.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000877-11.2026.8.16.0097",
+    "camara": "",
+    "chars": 1203,
+    "importado_em": "2026-02-27T17:53:15.790059",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00009067920268160188-1063391397",
+    "arquivo": "00009067920268160188-1063391397.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000906-79.2026.8.16.0188",
+    "camara": "",
+    "chars": 1125,
+    "importado_em": "2026-02-27T17:53:15.804848",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00009235220268160112-1062926917",
+    "arquivo": "00009235220268160112-1062926917.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "desconhecido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000923-52.2026.8.16.0112",
+    "camara": "",
+    "chars": 1715,
+    "importado_em": "2026-02-27T17:53:15.818477",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00009399320268160083-1062946268",
+    "arquivo": "00009399320268160083-1062946268.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000939-93.2026.8.16.0083",
+    "camara": "",
+    "chars": 1221,
+    "importado_em": "2026-02-27T17:53:15.826197",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00009455820268160194-1063292165",
+    "arquivo": "00009455820268160194-1063292165.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000945-58.2026.8.16.0194",
+    "camara": "",
+    "chars": 1368,
+    "importado_em": "2026-02-27T17:53:15.832433",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00009523820258160177-1063384486",
+    "arquivo": "00009523820258160177-1063384486.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "responsabilidade_civil"
+    ],
+    "numero_processo": "0000952-38.2025.8.16.0177",
+    "camara": "",
+    "chars": 4564,
+    "importado_em": "2026-02-27T17:53:15.840947",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00009847520268160058-1062813663",
+    "arquivo": "00009847520268160058-1062813663.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0000984-75.2026.8.16.0058",
+    "camara": "",
+    "chars": 1159,
+    "importado_em": "2026-02-27T17:53:15.847020",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00010085220268160075-1062975248",
+    "arquivo": "00010085220268160075-1062975248.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [
+      "tempestividade"
+    ],
+    "numero_processo": "0001008-52.2026.8.16.0075",
+    "camara": "",
+    "chars": 1879,
+    "importado_em": "2026-02-27T17:53:15.855102",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00010093720268160075-1062975255",
+    "arquivo": "00010093720268160075-1062975255.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [
+      "tempestividade"
+    ],
+    "numero_processo": "0001009-37.2026.8.16.0075",
+    "camara": "",
+    "chars": 1870,
+    "importado_em": "2026-02-27T17:53:15.861849",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00010457220268160045-1062705046",
+    "arquivo": "00010457220268160045-1062705046.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001045-72.2026.8.16.0045",
+    "camara": "",
+    "chars": 1144,
+    "importado_em": "2026-02-27T17:53:15.867782",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00010495220268160064-1062946318",
+    "arquivo": "00010495220268160064-1062946318.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001049-52.2026.8.16.0064",
+    "camara": "",
+    "chars": 1229,
+    "importado_em": "2026-02-27T17:53:15.873862",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00011223220258160202-1063130339",
+    "arquivo": "00011223220258160202-1063130339.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "preparo_deserção"
+    ],
+    "numero_processo": "0001122-32.2025.8.16.0202",
+    "camara": "",
+    "chars": 1514,
+    "importado_em": "2026-02-27T17:53:15.883762",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00011240220258160202-1063130281",
+    "arquivo": "00011240220258160202-1063130281.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "preparo_deserção"
+    ],
+    "numero_processo": "0001124-02.2025.8.16.0202",
+    "camara": "",
+    "chars": 1514,
+    "importado_em": "2026-02-27T17:53:15.890902",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00011273420268160165-1062814261",
+    "arquivo": "00011273420268160165-1062814261.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001127-34.2026.8.16.0165",
+    "camara": "",
+    "chars": 1192,
+    "importado_em": "2026-02-27T17:53:15.901367",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00011341120268160170-1063384695",
+    "arquivo": "00011341120268160170-1063384695.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [
+      "281"
+    ],
+    "materias": [
+      "preparo_deserção",
+      "acidente_transito"
+    ],
+    "numero_processo": "0001134-11.2026.8.16.0170",
+    "camara": "",
+    "chars": 2630,
+    "importado_em": "2026-02-27T17:53:15.908975",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00011818220268160170-1063384744",
+    "arquivo": "00011818220268160170-1063384744.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "preparo_deserção",
+      "tempestividade"
+    ],
+    "numero_processo": "0001181-82.2026.8.16.0170",
+    "camara": "",
+    "chars": 1972,
+    "importado_em": "2026-02-27T17:53:15.918073",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00012314620258160202-1062751304",
+    "arquivo": "00012314620258160202-1062751304.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [
+      "7",
+      "7/STJ"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "acidente_transito",
+      "responsabilidade_civil"
+    ],
+    "numero_processo": "0001231-46.2025.8.16.0202",
+    "camara": "2ª Câmara Cível",
+    "chars": 10549,
+    "importado_em": "2026-02-27T17:53:15.928473",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00012363320268160170-1062705056",
+    "arquivo": "00012363320268160170-1062705056.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001236-33.2026.8.16.0170",
+    "camara": "",
+    "chars": 1124,
+    "importado_em": "2026-02-27T17:53:15.935358",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00012379420258160059-1063221228",
+    "arquivo": "00012379420258160059-1063221228.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [
+      "211",
+      "7/STJ"
+    ],
+    "materias": [
+      "prequestionamento",
+      "responsabilidade_civil",
+      "direito_consumidor"
+    ],
+    "numero_processo": "0001237-94.2025.8.16.0059",
+    "camara": "13ª Câmara",
+    "chars": 15406,
+    "importado_em": "2026-02-27T17:53:15.947455",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00012429120268160056-1062813610",
+    "arquivo": "00012429120268160056-1062813610.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001242-91.2026.8.16.0056",
+    "camara": "",
+    "chars": 1165,
+    "importado_em": "2026-02-27T17:53:15.953710",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00012616820268160001-1062890791",
+    "arquivo": "00012616820268160001-1062890791.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "tempestividade"
+    ],
+    "numero_processo": "0001261-68.2026.8.16.0001",
+    "camara": "",
+    "chars": 1357,
+    "importado_em": "2026-02-27T17:53:15.961060",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00012720820258160042-1062975212",
+    "arquivo": "00012720820258160042-1062975212.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "83"
+    ],
+    "materias": [
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0001272-08.2025.8.16.0042",
+    "camara": "",
+    "chars": 14903,
+    "importado_em": "2026-02-27T17:53:15.976054",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00012720820258160042-1063384417",
+    "arquivo": "00012720820258160042-1063384417.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001272-08.2025.8.16.0042",
+    "camara": "",
+    "chars": 1057,
+    "importado_em": "2026-02-27T17:53:15.982468",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00012816720258160042-1063384392",
+    "arquivo": "00012816720258160042-1063384392.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [
+      "acidente_transito",
+      "responsabilidade_civil"
+    ],
+    "numero_processo": "0001281-67.2025.8.16.0042",
+    "camara": "",
+    "chars": 6180,
+    "importado_em": "2026-02-27T17:53:15.991455",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00012997720258160175-1062975228",
+    "arquivo": "00012997720258160175-1062975228.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "292"
+    ],
+    "materias": [],
+    "numero_processo": "0001299-77.2025.8.16.0175",
+    "camara": "4ª Câmara Criminal deste Tribunal de Justiça.",
+    "chars": 10040,
+    "importado_em": "2026-02-27T17:53:16.002003",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00013305220268160017-1063292150",
+    "arquivo": "00013305220268160017-1063292150.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001330-52.2026.8.16.0017",
+    "camara": "",
+    "chars": 1142,
+    "importado_em": "2026-02-27T17:53:16.010517",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00013537720248160175-1062890913",
+    "arquivo": "00013537720248160175-1062890913.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001353-77.2024.8.16.0175",
+    "camara": "",
+    "chars": 2276,
+    "importado_em": "2026-02-27T17:53:16.017593",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00013869320258160058-1063146855",
+    "arquivo": "00013869320258160058-1063146855.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "desconhecido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001386-93.2025.8.16.0058",
+    "camara": "",
+    "chars": 2007,
+    "importado_em": "2026-02-27T17:53:16.024306",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00014002820258160042-1063221327",
+    "arquivo": "00014002820258160042-1063221327.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001400-28.2025.8.16.0042",
+    "camara": "1ª Câmara Criminal.",
+    "chars": 8290,
+    "importado_em": "2026-02-27T17:53:16.033502",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00014015020268160083-1063291921",
+    "arquivo": "00014015020268160083-1063291921.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001401-50.2026.8.16.0083",
+    "camara": "",
+    "chars": 1202,
+    "importado_em": "2026-02-27T17:53:16.039899",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00014023520268160083-1063291915",
+    "arquivo": "00014023520268160083-1063291915.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001402-35.2026.8.16.0083",
+    "camara": "",
+    "chars": 1198,
+    "importado_em": "2026-02-27T17:53:16.046502",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00014816620268160001-1062814368",
+    "arquivo": "00014816620268160001-1062814368.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001481-66.2026.8.16.0001",
+    "camara": "",
+    "chars": 1137,
+    "importado_em": "2026-02-27T17:53:16.052725",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00015076520268160033-1063366973",
+    "arquivo": "00015076520268160033-1063366973.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [
+      "direito_trabalhista"
+    ],
+    "numero_processo": "0001507-65.2026.8.16.0033",
+    "camara": "",
+    "chars": 1271,
+    "importado_em": "2026-02-27T17:53:16.062348",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00015723120258160151-1063375472",
+    "arquivo": "00015723120258160151-1063375472.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "545",
+      "545/STJ",
+      "7",
+      "83"
+    ],
+    "materias": [
+      "interpretacao_contrato"
+    ],
+    "numero_processo": "0001572-31.2025.8.16.0151",
+    "camara": "3ª Câmara Criminal deste Tribunal de",
+    "chars": 5865,
+    "importado_em": "2026-02-27T17:53:16.074197",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00015760620268160031-1062926880",
+    "arquivo": "00015760620268160031-1062926880.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "desconhecido",
+    "sumulas": [],
+    "materias": [
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0001576-06.2026.8.16.0031",
+    "camara": "",
+    "chars": 5204,
+    "importado_em": "2026-02-27T17:53:16.088979",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00015865320268160030-1063321560",
+    "arquivo": "00015865320268160030-1063321560.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [
+      "acidente_transito"
+    ],
+    "numero_processo": "0001586-53.2026.8.16.0030",
+    "camara": "",
+    "chars": 1521,
+    "importado_em": "2026-02-27T17:53:16.098029",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00016129820188160202-1063130336",
+    "arquivo": "00016129820188160202-1063130336.pdf",
+    "tipo_recurso": "recurso_extraordinario",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0001612-98.2018.8.16.0202",
+    "camara": "",
+    "chars": 975,
+    "importado_em": "2026-02-27T17:53:16.112324",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00016202120268160000-1062975205",
+    "arquivo": "00016202120268160000-1062975205.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "tempestividade"
+    ],
+    "numero_processo": "0001620-21.2026.8.16.0000",
+    "camara": "",
+    "chars": 1305,
+    "importado_em": "2026-02-27T17:53:16.121655",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00016412220268160024-1063291973",
+    "arquivo": "00016412220268160024-1063291973.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001641-22.2026.8.16.0024",
+    "camara": "",
+    "chars": 1154,
+    "importado_em": "2026-02-27T17:53:16.130487",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00016681820258160031-1062926770",
+    "arquivo": "00016681820258160031-1062926770.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "desconhecido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001668-18.2025.8.16.0031",
+    "camara": "",
+    "chars": 1854,
+    "importado_em": "2026-02-27T17:53:16.137826",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00016687820268160129-1062813643",
+    "arquivo": "00016687820268160129-1062813643.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001668-78.2026.8.16.0129",
+    "camara": "",
+    "chars": 1197,
+    "importado_em": "2026-02-27T17:53:16.147093",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00016689820258160166-1062975283",
+    "arquivo": "00016689820258160166-1062975283.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [
+      "284",
+      "7",
+      "7/STJ"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "deficiencia_fundamentacao",
+      "direito_previdenciario"
+    ],
+    "numero_processo": "0001668-98.2025.8.16.0166",
+    "camara": "",
+    "chars": 9916,
+    "importado_em": "2026-02-27T17:53:16.160681",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00016690220258160096-1063391368",
+    "arquivo": "00016690220258160096-1063391368.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001669-02.2025.8.16.0096",
+    "camara": "",
+    "chars": 1181,
+    "importado_em": "2026-02-27T17:53:16.168647",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00016916420258160127-1063146738",
+    "arquivo": "00016916420258160127-1063146738.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "282",
+      "284",
+      "83"
+    ],
+    "materias": [
+      "prequestionamento",
+      "deficiencia_fundamentacao"
+    ],
+    "numero_processo": "0001691-64.2025.8.16.0127",
+    "camara": "",
+    "chars": 17610,
+    "importado_em": "2026-02-27T17:53:16.187903",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00016967520258160163-1063384491",
+    "arquivo": "00016967520258160163-1063384491.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "admitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001696-75.2025.8.16.0163",
+    "camara": "1ª Câmara Criminal deste Tribunal de Justiça.",
+    "chars": 9211,
+    "importado_em": "2026-02-27T17:53:16.199938",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00017106620258160096-1063410993",
+    "arquivo": "00017106620258160096-1063410993.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "tempestividade",
+      "acidente_transito"
+    ],
+    "numero_processo": "0001710-66.2025.8.16.0096",
+    "camara": "",
+    "chars": 1226,
+    "importado_em": "2026-02-27T17:53:16.206641",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00017547420268160056-1063369192",
+    "arquivo": "00017547420268160056-1063369192.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001754-74.2026.8.16.0056",
+    "camara": "",
+    "chars": 1283,
+    "importado_em": "2026-02-27T17:53:16.215800",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00017743520098160194-1063375431",
+    "arquivo": "00017743520098160194-1063375431.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001774-35.2009.8.16.0194",
+    "camara": "",
+    "chars": 1422,
+    "importado_em": "2026-02-27T17:53:16.226539",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00017812620258160110-1062891322",
+    "arquivo": "00017812620258160110-1062891322.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "282",
+      "283",
+      "283/STF",
+      "83/STJ"
+    ],
+    "materias": [
+      "prequestionamento",
+      "fundamentos_inatacados",
+      "familia_sucessoes",
+      "execucao_fiscal"
+    ],
+    "numero_processo": "0001781-26.2025.8.16.0110",
+    "camara": "17ª Câmara Cível",
+    "chars": 11077,
+    "importado_em": "2026-02-27T17:53:16.237403",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00018542220258160102-1063221262",
+    "arquivo": "00018542220258160102-1063221262.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "tempestividade"
+    ],
+    "numero_processo": "0001854-22.2025.8.16.0102",
+    "camara": "",
+    "chars": 1202,
+    "importado_em": "2026-02-27T17:53:16.247928",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00018696620268160001-1063369201",
+    "arquivo": "00018696620268160001-1063369201.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001869-66.2026.8.16.0001",
+    "camara": "",
+    "chars": 1290,
+    "importado_em": "2026-02-27T17:53:16.263972",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00018923220258160135-1062749593",
+    "arquivo": "00018923220258160135-1062749593.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "admitido",
+    "sumulas": [],
+    "materias": [
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0001892-32.2025.8.16.0135",
+    "camara": "1ª Câmara Criminal deste Tribunal de Justiça.",
+    "chars": 8514,
+    "importado_em": "2026-02-27T17:53:16.286048",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00018975420118160132-1063375405",
+    "arquivo": "00018975420118160132-1063375405.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001897-54.2011.8.16.0132",
+    "camara": "",
+    "chars": 1864,
+    "importado_em": "2026-02-27T17:53:16.296080",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00019069420268160033-1063291925",
+    "arquivo": "00019069420268160033-1063291925.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001906-94.2026.8.16.0033",
+    "camara": "",
+    "chars": 1165,
+    "importado_em": "2026-02-27T17:53:16.303243",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00019086420268160033-1063291932",
+    "arquivo": "00019086420268160033-1063291932.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001908-64.2026.8.16.0033",
+    "camara": "",
+    "chars": 1169,
+    "importado_em": "2026-02-27T17:53:16.310911",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00019484820268160000-1062814399",
+    "arquivo": "00019484820268160000-1062814399.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001948-48.2026.8.16.0000",
+    "camara": "",
+    "chars": 1144,
+    "importado_em": "2026-02-27T17:53:16.319064",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00019564120238160061-1062975271",
+    "arquivo": "00019564120238160061-1062975271.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001956-41.2023.8.16.0061",
+    "camara": "",
+    "chars": 1492,
+    "importado_em": "2026-02-27T17:53:16.326829",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00019571020268160194-1062957048",
+    "arquivo": "00019571020268160194-1062957048.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [
+      "281"
+    ],
+    "materias": [],
+    "numero_processo": "0001957-10.2026.8.16.0194",
+    "camara": "",
+    "chars": 2445,
+    "importado_em": "2026-02-27T17:53:16.334392",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00019652720268160116-1063291936",
+    "arquivo": "00019652720268160116-1063291936.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0001965-27.2026.8.16.0116",
+    "camara": "",
+    "chars": 1172,
+    "importado_em": "2026-02-27T17:53:16.341338",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00020032920258160066-1063130303",
+    "arquivo": "00020032920258160066-1063130303.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [
+      "83",
+      "83/STJ"
+    ],
+    "materias": [
+      "direito_consumidor"
+    ],
+    "numero_processo": "0002003-29.2025.8.16.0066",
+    "camara": "",
+    "chars": 4362,
+    "importado_em": "2026-02-27T17:53:16.348862",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00020230520258160168-1063391373",
+    "arquivo": "00020230520258160168-1063391373.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "direito_previdenciario"
+    ],
+    "numero_processo": "0002023-05.2025.8.16.0168",
+    "camara": "",
+    "chars": 1124,
+    "importado_em": "2026-02-27T17:53:16.354964",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00020454520268160001-1062975236",
+    "arquivo": "00020454520268160001-1062975236.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "preparo_deserção",
+      "tempestividade"
+    ],
+    "numero_processo": "0002045-45.2026.8.16.0001",
+    "camara": "",
+    "chars": 1996,
+    "importado_em": "2026-02-27T17:53:16.363959",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00020913420268160001-1063369189",
+    "arquivo": "00020913420268160001-1063369189.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002091-34.2026.8.16.0001",
+    "camara": "",
+    "chars": 1154,
+    "importado_em": "2026-02-27T17:53:16.370760",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00021377420258160060-1063375448",
+    "arquivo": "00021377420258160060-1063375448.pdf",
+    "tipo_recurso": "agravo_recurso_extraordinario",
+    "decisao": "diligencia",
+    "sumulas": [
+      "279",
+      "279/STF",
+      "282"
+    ],
+    "materias": [
+      "prequestionamento"
+    ],
+    "numero_processo": "0002137-74.2025.8.16.0060",
+    "camara": "1ª Câmara Criminal deste",
+    "chars": 14148,
+    "importado_em": "2026-02-27T17:53:16.383064",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00022203520258160046-1062927030",
+    "arquivo": "00022203520258160046-1062927030.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [
+      "284",
+      "284/STF",
+      "83"
+    ],
+    "materias": [
+      "deficiencia_fundamentacao",
+      "preparo_deserção",
+      "direito_previdenciario",
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0002220-35.2025.8.16.0046",
+    "camara": "",
+    "chars": 12467,
+    "importado_em": "2026-02-27T17:53:16.394481",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00022212020258160046-1062927042",
+    "arquivo": "00022212020258160046-1062927042.pdf",
+    "tipo_recurso": "agravo_recurso_extraordinario",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "284",
+      "284/STF"
+    ],
+    "materias": [
+      "deficiencia_fundamentacao",
+      "preparo_deserção"
+    ],
+    "numero_processo": "0002221-20.2025.8.16.0046",
+    "camara": "",
+    "chars": 3569,
+    "importado_em": "2026-02-27T17:53:16.404479",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00022777620258160006-1063384495",
+    "arquivo": "00022777620258160006-1063384495.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002277-76.2025.8.16.0006",
+    "camara": "",
+    "chars": 1463,
+    "importado_em": "2026-02-27T17:53:16.411525",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00022782020268160170-1062813594",
+    "arquivo": "00022782020268160170-1062813594.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002278-20.2026.8.16.0170",
+    "camara": "",
+    "chars": 1182,
+    "importado_em": "2026-02-27T17:53:16.419277",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00022936420238160179-1062975201",
+    "arquivo": "00022936420238160179-1062975201.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "desconhecido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002293-64.2023.8.16.0179",
+    "camara": "",
+    "chars": 6192,
+    "importado_em": "2026-02-27T17:53:16.431008",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00022945720258160089-1062613299",
+    "arquivo": "00022945720258160089-1062613299.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "292"
+    ],
+    "materias": [
+      "tempestividade",
+      "execucao_fiscal"
+    ],
+    "numero_processo": "0002294-57.2025.8.16.0089",
+    "camara": "2ª Câmara Cível",
+    "chars": 5041,
+    "importado_em": "2026-02-27T17:53:16.440259",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00023006420268160013-1062813600",
+    "arquivo": "00023006420268160013-1062813600.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002300-64.2026.8.16.0013",
+    "camara": "",
+    "chars": 1199,
+    "importado_em": "2026-02-27T17:53:16.448395",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00023060220148160172-1062975286",
+    "arquivo": "00023060220148160172-1062975286.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002306-02.2014.8.16.0172",
+    "camara": "",
+    "chars": 971,
+    "importado_em": "2026-02-27T17:53:16.455029",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00023119320268160013-1062814265",
+    "arquivo": "00023119320268160013-1062814265.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002311-93.2026.8.16.0013",
+    "camara": "",
+    "chars": 1177,
+    "importado_em": "2026-02-27T17:53:16.463336",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00023227620258160169-1062891414",
+    "arquivo": "00023227620258160169-1062891414.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [
+      "283",
+      "283/STF",
+      "284"
+    ],
+    "materias": [
+      "prequestionamento",
+      "deficiencia_fundamentacao",
+      "fundamentos_inatacados",
+      "acidente_transito",
+      "responsabilidade_civil"
+    ],
+    "numero_processo": "0002322-76.2025.8.16.0169",
+    "camara": "20ª Câmara Cível",
+    "chars": 12020,
+    "importado_em": "2026-02-27T17:53:16.474900",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00023494920258160043-1062926826",
+    "arquivo": "00023494920258160043-1062926826.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "83"
+    ],
+    "materias": [
+      "prequestionamento",
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0002349-49.2025.8.16.0043",
+    "camara": "1ª Câmara Criminal deste",
+    "chars": 5977,
+    "importado_em": "2026-02-27T17:53:16.486847",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00023698820238160179-1062784358",
+    "arquivo": "00023698820238160179-1062784358.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "desconhecido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002369-88.2023.8.16.0179",
+    "camara": "",
+    "chars": 6243,
+    "importado_em": "2026-02-27T17:53:16.500468",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00023783820258160128-1062975211",
+    "arquivo": "00023783820258160128-1062975211.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "tempestividade"
+    ],
+    "numero_processo": "0002378-38.2025.8.16.0128",
+    "camara": "",
+    "chars": 1237,
+    "importado_em": "2026-02-27T17:53:16.507844",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00024126920268160001-1063167911",
+    "arquivo": "00024126920268160001-1063167911.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002412-69.2026.8.16.0001",
+    "camara": "",
+    "chars": 1149,
+    "importado_em": "2026-02-27T17:53:16.514758",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00024152920258160043-1063135741",
+    "arquivo": "00024152920258160043-1063135741.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002415-29.2025.8.16.0043",
+    "camara": "8ª Câmara Cível deste Tribunal de Justiça.",
+    "chars": 3307,
+    "importado_em": "2026-02-27T17:53:16.522019",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00024158520268160013-1063391375",
+    "arquivo": "00024158520268160013-1063391375.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002415-85.2026.8.16.0013",
+    "camara": "",
+    "chars": 1195,
+    "importado_em": "2026-02-27T17:53:16.529884",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00024238420258160211-1063292234",
+    "arquivo": "00024238420258160211-1063292234.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0002423-84.2025.8.16.0211",
+    "camara": "",
+    "chars": 1128,
+    "importado_em": "2026-02-27T17:53:16.535998",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00024246920258160211-1063292237",
+    "arquivo": "00024246920258160211-1063292237.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0002424-69.2025.8.16.0211",
+    "camara": "",
+    "chars": 1923,
+    "importado_em": "2026-02-27T17:53:16.542742",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00025004720268160021-1063292146",
+    "arquivo": "00025004720268160021-1063292146.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002500-47.2026.8.16.0021",
+    "camara": "",
+    "chars": 1299,
+    "importado_em": "2026-02-27T17:53:16.549169",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00025195720258160128-1063146698",
+    "arquivo": "00025195720258160128-1063146698.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002519-57.2025.8.16.0128",
+    "camara": "",
+    "chars": 2428,
+    "importado_em": "2026-02-27T17:53:16.558937",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00025256020268160021-1062946305",
+    "arquivo": "00025256020268160021-1062946305.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002525-60.2026.8.16.0021",
+    "camara": "",
+    "chars": 1140,
+    "importado_em": "2026-02-27T17:53:16.565590",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00025828820258160126-1062957071",
+    "arquivo": "00025828820258160126-1062957071.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "284",
+      "7",
+      "7/SUPERIOR",
+      "83"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "deficiencia_fundamentacao",
+      "responsabilidade_civil"
+    ],
+    "numero_processo": "0002582-88.2025.8.16.0126",
+    "camara": "4ª Câmara Criminal deste Tribunal de",
+    "chars": 29194,
+    "importado_em": "2026-02-27T17:53:16.584656",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00026400420248160037-1063146660",
+    "arquivo": "00026400420248160037-1063146660.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "desconhecido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002640-04.2024.8.16.0037",
+    "camara": "",
+    "chars": 1392,
+    "importado_em": "2026-02-27T17:53:16.592714",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00026719020258160036-1062975237",
+    "arquivo": "00026719020258160036-1062975237.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "tempestividade",
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0002671-90.2025.8.16.0036",
+    "camara": "",
+    "chars": 1160,
+    "importado_em": "2026-02-27T17:53:16.603461",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00026725320258160108-1063412974",
+    "arquivo": "00026725320258160108-1063412974.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "preparo_deserção"
+    ],
+    "numero_processo": "0002672-53.2025.8.16.0108",
+    "camara": "",
+    "chars": 2961,
+    "importado_em": "2026-02-27T17:53:16.614722",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00026733820258160108-1063412973",
+    "arquivo": "00026733820258160108-1063412973.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "preparo_deserção"
+    ],
+    "numero_processo": "0002673-38.2025.8.16.0108",
+    "camara": "",
+    "chars": 3053,
+    "importado_em": "2026-02-27T17:53:16.625097",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00027095120258160053-1063220948",
+    "arquivo": "00027095120258160053-1063220948.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [
+      "7",
+      "83"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "acidente_transito",
+      "responsabilidade_civil"
+    ],
+    "numero_processo": "0002709-51.2025.8.16.0053",
+    "camara": "1ª Câmara Criminal deste Tribunal de",
+    "chars": 13302,
+    "importado_em": "2026-02-27T17:53:16.643805",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00027222120258160095-1062784288",
+    "arquivo": "00027222120258160095-1062784288.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "284",
+      "7"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "prequestionamento",
+      "deficiencia_fundamentacao"
+    ],
+    "numero_processo": "0002722-21.2025.8.16.0095",
+    "camara": "17ª Câmara Cível deste",
+    "chars": 6825,
+    "importado_em": "2026-02-27T17:53:16.653142",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00027266020258160062-1063384690",
+    "arquivo": "00027266020258160062-1063384690.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "7",
+      "7/STJ",
+      "83/STJ"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "responsabilidade_civil",
+      "direito_trabalhista",
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0002726-60.2025.8.16.0062",
+    "camara": "",
+    "chars": 11762,
+    "importado_em": "2026-02-27T17:53:16.665950",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00027271620258160007-1063221238",
+    "arquivo": "00027271620258160007-1063221238.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002727-16.2025.8.16.0007",
+    "camara": "",
+    "chars": 963,
+    "importado_em": "2026-02-27T17:53:16.674525",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00027289820258160007-1063221353",
+    "arquivo": "00027289820258160007-1063221353.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002728-98.2025.8.16.0007",
+    "camara": "",
+    "chars": 964,
+    "importado_em": "2026-02-27T17:53:16.681080",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00027523420248160049-1062890775",
+    "arquivo": "00027523420248160049-1062890775.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002752-34.2024.8.16.0049",
+    "camara": "",
+    "chars": 2274,
+    "importado_em": "2026-02-27T17:53:16.689216",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00028131720258160094-1063384374",
+    "arquivo": "00028131720258160094-1063384374.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "preparo_deserção"
+    ],
+    "numero_processo": "0002813-17.2025.8.16.0094",
+    "camara": "",
+    "chars": 2333,
+    "importado_em": "2026-02-27T17:53:16.697076",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00028140220258160094-1063384375",
+    "arquivo": "00028140220258160094-1063384375.pdf",
+    "tipo_recurso": "recurso_extraordinario",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "preparo_deserção"
+    ],
+    "numero_processo": "0002814-02.2025.8.16.0094",
+    "camara": "",
+    "chars": 2309,
+    "importado_em": "2026-02-27T17:53:16.704120",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00028435120258160062-1063130310",
+    "arquivo": "00028435120258160062-1063130310.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [
+      "231",
+      "282",
+      "7",
+      "7/STJ",
+      "83"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "prequestionamento",
+      "responsabilidade_civil"
+    ],
+    "numero_processo": "0002843-51.2025.8.16.0062",
+    "camara": "1ª Câmara Criminal deste Tribunal de",
+    "chars": 13361,
+    "importado_em": "2026-02-27T17:53:16.716394",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00028690720268160000-1062814259",
+    "arquivo": "00028690720268160000-1062814259.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002869-07.2026.8.16.0000",
+    "camara": "",
+    "chars": 1291,
+    "importado_em": "2026-02-27T17:53:16.725264",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00029118120258160100-1063146671",
+    "arquivo": "00029118120258160100-1063146671.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "07",
+      "7/STJ"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "acidente_transito",
+      "responsabilidade_civil"
+    ],
+    "numero_processo": "0002911-81.2025.8.16.0100",
+    "camara": "",
+    "chars": 7957,
+    "importado_em": "2026-02-27T17:53:16.736349",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00029122320258160179-1062750023",
+    "arquivo": "00029122320258160179-1062750023.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "114",
+      "280/STF",
+      "7/STJ"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0002912-23.2025.8.16.0179",
+    "camara": "",
+    "chars": 4449,
+    "importado_em": "2026-02-27T17:53:16.748729",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00029262920268160031-1062814267",
+    "arquivo": "00029262920268160031-1062814267.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002926-29.2026.8.16.0031",
+    "camara": "",
+    "chars": 1175,
+    "importado_em": "2026-02-27T17:53:16.757647",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00029359620258160072-1062749689",
+    "arquivo": "00029359620258160072-1062749689.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002935-96.2025.8.16.0072",
+    "camara": "5ª Câmara Criminal deste Tribunal de",
+    "chars": 2513,
+    "importado_em": "2026-02-27T17:53:16.765744",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00029633420258160179-1062981087",
+    "arquivo": "00029633420258160179-1062981087.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "182/STJ",
+      "5",
+      "5/STJ"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "interpretacao_contrato"
+    ],
+    "numero_processo": "0002963-34.2025.8.16.0179",
+    "camara": "",
+    "chars": 7343,
+    "importado_em": "2026-02-27T17:53:16.776246",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00029650420258160179-1062981088",
+    "arquivo": "00029650420258160179-1062981088.pdf",
+    "tipo_recurso": "agravo_recurso_extraordinario",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "279",
+      "279/STF"
+    ],
+    "materias": [],
+    "numero_processo": "0002965-04.2025.8.16.0179",
+    "camara": "",
+    "chars": 6871,
+    "importado_em": "2026-02-27T17:53:16.785124",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00029878020268160000-1062814387",
+    "arquivo": "00029878020268160000-1062814387.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0002987-80.2026.8.16.0000",
+    "camara": "",
+    "chars": 1184,
+    "importado_em": "2026-02-27T17:53:16.793628",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00030097820258160193-1063375610",
+    "arquivo": "00030097820258160193-1063375610.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "desconhecido",
+    "sumulas": [],
+    "materias": [
+      "responsabilidade_civil"
+    ],
+    "numero_processo": "0003009-78.2025.8.16.0193",
+    "camara": "",
+    "chars": 1661,
+    "importado_em": "2026-02-27T17:53:16.800695",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00030224420268160031-1063291964",
+    "arquivo": "00030224420268160031-1063291964.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003022-44.2026.8.16.0031",
+    "camara": "",
+    "chars": 1194,
+    "importado_em": "2026-02-27T17:53:16.810601",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00030237520258160124-1063411017",
+    "arquivo": "00030237520258160124-1063411017.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "preparo_deserção",
+      "tempestividade"
+    ],
+    "numero_processo": "0003023-75.2025.8.16.0124",
+    "camara": "",
+    "chars": 1553,
+    "importado_em": "2026-02-27T17:53:16.817346",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00031097820258160081-1062926819",
+    "arquivo": "00031097820258160081-1062926819.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "7"
+    ],
+    "materias": [
+      "reexame_de_prova"
+    ],
+    "numero_processo": "0003109-78.2025.8.16.0081",
+    "camara": "",
+    "chars": 7519,
+    "importado_em": "2026-02-27T17:53:16.826589",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00031185920268160031-1063391377",
+    "arquivo": "00031185920268160031-1063391377.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003118-59.2026.8.16.0031",
+    "camara": "",
+    "chars": 1184,
+    "importado_em": "2026-02-27T17:53:16.833377",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00031205720258160130-1063411008",
+    "arquivo": "00031205720258160130-1063411008.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "desconhecido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003120-57.2025.8.16.0130",
+    "camara": "",
+    "chars": 2211,
+    "importado_em": "2026-02-27T17:53:16.841008",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00031263620268160031-1063391366",
+    "arquivo": "00031263620268160031-1063391366.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003126-36.2026.8.16.0031",
+    "camara": "",
+    "chars": 1213,
+    "importado_em": "2026-02-27T17:53:16.848172",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00031287520258160181-1063386810",
+    "arquivo": "00031287520258160181-1063386810.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0003128-75.2025.8.16.0181",
+    "camara": "",
+    "chars": 701,
+    "importado_em": "2026-02-27T17:53:16.854261",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00031367520258160141-1063221374",
+    "arquivo": "00031367520258160141-1063221374.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "659",
+      "7",
+      "7/STJ",
+      "83",
+      "83/STJ"
+    ],
+    "materias": [
+      "reexame_de_prova"
+    ],
+    "numero_processo": "0003136-75.2025.8.16.0141",
+    "camara": "",
+    "chars": 22719,
+    "importado_em": "2026-02-27T17:53:16.871457",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00031743720268160017-1062814355",
+    "arquivo": "00031743720268160017-1062814355.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003174-37.2026.8.16.0017",
+    "camara": "",
+    "chars": 1171,
+    "importado_em": "2026-02-27T17:53:16.878921",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00031811820258160129-1062957119",
+    "arquivo": "00031811820258160129-1062957119.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003181-18.2025.8.16.0129",
+    "camara": "",
+    "chars": 2153,
+    "importado_em": "2026-02-27T17:53:16.885367",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00031878620258160141-1063146873",
+    "arquivo": "00031878620258160141-1063146873.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "desconhecido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003187-86.2025.8.16.0141",
+    "camara": "",
+    "chars": 1838,
+    "importado_em": "2026-02-27T17:53:16.894214",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00032140720268160021-1063291899",
+    "arquivo": "00032140720268160021-1063291899.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003214-07.2026.8.16.0021",
+    "camara": "",
+    "chars": 1495,
+    "importado_em": "2026-02-27T17:53:16.900765",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00032153020258160149-1063135727",
+    "arquivo": "00032153020258160149-1063135727.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "13",
+      "7",
+      "7/STJ"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "direito_previdenciario",
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0003215-30.2025.8.16.0149",
+    "camara": "11ª Câmara Cível deste",
+    "chars": 7928,
+    "importado_em": "2026-02-27T17:53:16.919065",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00032161520258160149-1063135737",
+    "arquivo": "00032161520258160149-1063135737.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "13",
+      "282",
+      "284",
+      "7",
+      "7/STJ"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "prequestionamento",
+      "deficiencia_fundamentacao",
+      "direito_previdenciario",
+      "familia_sucessoes"
+    ],
+    "numero_processo": "0003216-15.2025.8.16.0149",
+    "camara": "11ª Câmara Cível deste Tribunal de Justiça.",
+    "chars": 10951,
+    "importado_em": "2026-02-27T17:53:16.935536",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00032371620268160000-1062814296",
+    "arquivo": "00032371620268160000-1062814296.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003237-16.2026.8.16.0000",
+    "camara": "",
+    "chars": 1291,
+    "importado_em": "2026-02-27T17:53:16.947028",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00032423820268160000-1062814292",
+    "arquivo": "00032423820268160000-1062814292.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003242-38.2026.8.16.0000",
+    "camara": "",
+    "chars": 1291,
+    "importado_em": "2026-02-27T17:53:16.960682",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00032467520268160000-1062813580",
+    "arquivo": "00032467520268160000-1062813580.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003246-75.2026.8.16.0000",
+    "camara": "",
+    "chars": 1552,
+    "importado_em": "2026-02-27T17:53:16.967384",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00032484220258160174-1063220971",
+    "arquivo": "00032484220258160174-1063220971.pdf",
+    "tipo_recurso": "recurso_extraordinario",
+    "decisao": "desconhecido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003248-42.2025.8.16.0174",
+    "camara": "",
+    "chars": 968,
+    "importado_em": "2026-02-27T17:53:16.975590",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00032492720258160174-1063221014",
+    "arquivo": "00032492720258160174-1063221014.pdf",
+    "tipo_recurso": "agravo_recurso_extraordinario",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003249-27.2025.8.16.0174",
+    "camara": "1ª Câmara Criminal deste Tribunal de Justiça.",
+    "chars": 13416,
+    "importado_em": "2026-02-27T17:53:16.987474",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00032701320268160030-1063162455",
+    "arquivo": "00032701320268160030-1063162455.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [
+      "responsabilidade_civil"
+    ],
+    "numero_processo": "0003270-13.2026.8.16.0030",
+    "camara": "",
+    "chars": 1179,
+    "importado_em": "2026-02-27T17:53:16.994106",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00033541320258160074-1063411010",
+    "arquivo": "00033541320258160074-1063411010.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "283",
+      "284",
+      "284/STF",
+      "7/STJ"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "deficiencia_fundamentacao",
+      "execucao_fiscal"
+    ],
+    "numero_processo": "0003354-13.2025.8.16.0074",
+    "camara": "",
+    "chars": 6321,
+    "importado_em": "2026-02-27T17:53:17.003196",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00033563220268160014-1063369203",
+    "arquivo": "00033563220268160014-1063369203.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003356-32.2026.8.16.0014",
+    "camara": "",
+    "chars": 1204,
+    "importado_em": "2026-02-27T17:53:17.010906",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00033606020268160017-1062814256",
+    "arquivo": "00033606020268160017-1062814256.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [
+      "direito_trabalhista"
+    ],
+    "numero_processo": "0003360-60.2026.8.16.0017",
+    "camara": "",
+    "chars": 1170,
+    "importado_em": "2026-02-27T17:53:17.017803",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00033667620268160014-1063292149",
+    "arquivo": "00033667620268160014-1063292149.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003366-76.2026.8.16.0014",
+    "camara": "",
+    "chars": 1212,
+    "importado_em": "2026-02-27T17:53:17.026462",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00033817420258160048-1063375426",
+    "arquivo": "00033817420258160048-1063375426.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [
+      "7",
+      "83"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "preparo_deserção"
+    ],
+    "numero_processo": "0003381-74.2025.8.16.0048",
+    "camara": "1ª Câmara Criminal deste Tribunal de",
+    "chars": 8529,
+    "importado_em": "2026-02-27T17:53:17.036261",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00034093720258160179-1062613285",
+    "arquivo": "00034093720258160179-1062613285.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "admitido",
+    "sumulas": [
+      "292"
+    ],
+    "materias": [
+      "execucao_fiscal"
+    ],
+    "numero_processo": "0003409-37.2025.8.16.0179",
+    "camara": "3ª Câmara Cível deste Tribunal",
+    "chars": 7207,
+    "importado_em": "2026-02-27T17:53:17.048774",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00034406720268160035-1063292256",
+    "arquivo": "00034406720268160035-1063292256.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003440-67.2026.8.16.0035",
+    "camara": "",
+    "chars": 1164,
+    "importado_em": "2026-02-27T17:53:17.055377",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00034559320258160189-1063384397",
+    "arquivo": "00034559320258160189-1063384397.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "desconhecido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003455-93.2025.8.16.0189",
+    "camara": "",
+    "chars": 5453,
+    "importado_em": "2026-02-27T17:53:17.065550",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00034576920268160014-1063130299",
+    "arquivo": "00034576920268160014-1063130299.pdf",
+    "tipo_recurso": "desconhecido",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "tempestividade",
+      "acidente_transito"
+    ],
+    "numero_processo": "0003457-69.2026.8.16.0014",
+    "camara": "",
+    "chars": 1188,
+    "importado_em": "2026-02-27T17:53:17.072820",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00034778420258160179-1062926854",
+    "arquivo": "00034778420258160179-1062926854.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "preparo_deserção"
+    ],
+    "numero_processo": "0003477-84.2025.8.16.0179",
+    "camara": "",
+    "chars": 3186,
+    "importado_em": "2026-02-27T17:53:17.080015",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00034804920268160035-1062946263",
+    "arquivo": "00034804920268160035-1062946263.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003480-49.2026.8.16.0035",
+    "camara": "",
+    "chars": 1198,
+    "importado_em": "2026-02-27T17:53:17.086908",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00035117620258160141-1062957096",
+    "arquivo": "00035117620258160141-1062957096.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "preparo_deserção",
+      "tempestividade"
+    ],
+    "numero_processo": "0003511-76.2025.8.16.0141",
+    "camara": "",
+    "chars": 3943,
+    "importado_em": "2026-02-27T17:53:17.094801",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00035188920258160134-1062750119",
+    "arquivo": "00035188920258160134-1062750119.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "283",
+      "284"
+    ],
+    "materias": [
+      "deficiencia_fundamentacao"
+    ],
+    "numero_processo": "0003518-89.2025.8.16.0134",
+    "camara": "",
+    "chars": 4221,
+    "importado_em": "2026-02-27T17:53:17.105254",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00035212420268160000-1062813552",
+    "arquivo": "00035212420268160000-1062813552.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003521-24.2026.8.16.0000",
+    "camara": "",
+    "chars": 1131,
+    "importado_em": "2026-02-27T17:53:17.114651",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00035350820268160000-1062814365",
+    "arquivo": "00035350820268160000-1062814365.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003535-08.2026.8.16.0000",
+    "camara": "",
+    "chars": 1251,
+    "importado_em": "2026-02-27T17:53:17.121163",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00035378920258160039-1063384381",
+    "arquivo": "00035378920258160039-1063384381.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [
+      "tempestividade"
+    ],
+    "numero_processo": "0003537-89.2025.8.16.0039",
+    "camara": "",
+    "chars": 4157,
+    "importado_em": "2026-02-27T17:53:17.130498",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00035471420268160035-1063167897",
+    "arquivo": "00035471420268160035-1063167897.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003547-14.2026.8.16.0035",
+    "camara": "",
+    "chars": 1196,
+    "importado_em": "2026-02-27T17:53:17.136934",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00036413120258160088-1062975204",
+    "arquivo": "00036413120258160088-1062975204.pdf",
+    "tipo_recurso": "recurso_especial",
+    "decisao": "diligencia",
+    "sumulas": [],
+    "materias": [],
+    "numero_processo": "0003641-31.2025.8.16.0088",
+    "camara": "",
+    "chars": 1345,
+    "importado_em": "2026-02-27T17:53:17.143276",
+    "avaliacao": "pendente"
+  },
+  {
+    "id": "00036452120258160039-1063414028",
+    "arquivo": "00036452120258160039-1063414028.pdf",
+    "tipo_recurso": "agravo_recurso_especial",
+    "decisao": "inadmitido",
+    "sumulas": [
+      "282",
+      "7"
+    ],
+    "materias": [
+      "reexame_de_prova",
+      "prequestionamento"
+    ],
+    "numero_processo": "0003645-21.2025.8.16.0039",
+    "camara": "",
+    "chars": 7056,
+    "importado_em": "2026-02-27T17:53:17.154238",
+    "avaliacao": "pendente"
+  }
+]

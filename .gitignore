@@ -41,3 +41,9 @@ htmlcov/
 
 originais/
 manuais/
+
+*.pdf
+
+# Minutas de referência — PDFs originais não sobem (pesados)
+# Apenas index.json e textos/ são versionados (necessários em produção)
+minutas_referencia/pdfs/
