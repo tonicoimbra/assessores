@@ -157,6 +157,10 @@ ENABLE_WEB_DOWNLOAD_ACCESS_CONTROL: bool = (
 WEB_DOWNLOAD_TOKEN_TTL_SECONDS: int = int(
     os.getenv("WEB_DOWNLOAD_TOKEN_TTL_SECONDS", "900")
 )
+# Max size for PDF uploads (default 50 MB)
+MAX_UPLOAD_SIZE_MB: int = int(os.getenv("MAX_UPLOAD_SIZE_MB", "50"))
+# Time-to-live for in-memory job entries (default 2 hours)
+JOB_TTL_HOURS: int = int(os.getenv("JOB_TTL_HOURS", "2"))
 
 # Data retention policy
 ENABLE_RETENTION_POLICY: bool = (

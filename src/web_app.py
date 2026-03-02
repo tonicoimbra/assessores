@@ -13,7 +13,9 @@ from flask import Flask, jsonify, render_template, request, send_file
 from werkzeug.utils import secure_filename
 
 from src.config import (
+    JOB_TTL_HOURS,
     LLM_PROVIDER,
+    MAX_UPLOAD_SIZE_MB,
     OPENAI_API_KEY,
     OPENROUTER_API_KEY,
     OUTPUTS_DIR,
@@ -30,6 +32,8 @@ app = Flask(
     static_folder="../static",
     static_url_path="/static",
 )
+# Limit upload size to prevent DoS
+app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
 UPLOADS_DIR = OUTPUTS_DIR / "web_uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
@@ -90,10 +94,13 @@ def _build_download_url(path: str) -> str:
 
 
 def _purge_old_jobs() -> None:
-    """Remove completed jobs older than 30 minutes."""
-    cutoff = time.time() - 1800
+    """Remove completed/failed jobs older than JOB_TTL_HOURS."""
+    cutoff = time.time() - (JOB_TTL_HOURS * 3600)
     with _JOBS_LOCK:
-        expired = [jid for jid, j in _JOBS.items() if j.get("finished_at", 0) and j["finished_at"] < cutoff]
+        expired = [
+            jid for jid, j in _JOBS.items()
+            if j.get("finished_at") and j["finished_at"] < cutoff
+        ]
         for jid in expired:
             _JOBS.pop(jid, None)
 

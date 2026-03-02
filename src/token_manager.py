@@ -354,50 +354,6 @@ class TextChunker:
             used_tokens += tok
         return selected
 
-    def _hard_split_text(self, text: str, model: str) -> list[str]:
-        """
-        Force split text by characters when paragraph is too large.
-
-        Args:
-            text: Text to split.
-            model: Model for token estimation.
-
-        Returns:
-            List of text chunks.
-        """
-        # Estimate chars per token ratio
-        total_tokens = self.token_manager.estimate_tokens(text, model)
-        chars_per_token = len(text) / total_tokens if total_tokens > 0 else 4
-
-        # Calculate target chunk size in characters
-        target_chars = int(self.max_tokens * chars_per_token * 0.9)  # 90% safety margin
-
-        chunks: list[str] = []
-        start = 0
-
-        while start < len(text):
-            end = start + target_chars
-
-            # Try to break at sentence boundary
-            if end < len(text):
-                # Look for sentence end markers within next 200 chars
-                search_end = min(end + 200, len(text))
-                sentence_markers = [". ", ".\n", "! ", "?\n"]
-                best_break = end
-
-                for marker in sentence_markers:
-                    idx = text.find(marker, end, search_end)
-                    if idx != -1:
-                        best_break = idx + len(marker)
-                        break
-
-                end = best_break
-
-            chunk = text[start:end]
-            chunks.append(chunk)
-            start = end
-
-        return chunks
 
     def _hard_split_unit(self, unit: dict[str, Any], model: str) -> list[dict[str, Any]]:
         """Split oversized semantic unit preserving offsets and section hint."""
@@ -436,28 +392,6 @@ class TextChunker:
 
         return split_units
 
-    def _get_overlap_text(self, paragraphs: list[str], model: str) -> str:
-        """
-        Get last N paragraphs that fit within overlap budget.
-
-        Args:
-            paragraphs: List of paragraphs.
-            model: Model for token estimation.
-
-        Returns:
-            Overlap text (last paragraphs up to overlap_tokens limit).
-        """
-        overlap_text = ""
-        overlap_tokens = 0
-
-        for para in reversed(paragraphs):
-            para_tokens = self.token_manager.estimate_tokens(para, model)
-            if overlap_tokens + para_tokens > self.overlap_tokens:
-                break
-            overlap_text = para + "\n\n" + overlap_text
-            overlap_tokens += para_tokens
-
-        return overlap_text.strip()
 
     def chunk_by_sections(self, text: str, model: str = "gpt-4o") -> dict[str, str]:
         """

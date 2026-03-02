@@ -3,8 +3,8 @@
 import logging
 import re
 import unicodedata
-from difflib import SequenceMatcher
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from difflib import SequenceMatcher
 
 from src.config import (
     ENABLE_CHUNKING,
@@ -15,14 +15,32 @@ from src.config import (
     MAX_CONTEXT_TOKENS,
     TOKEN_BUDGET_RATIO,
 )
-from src.etapa1 import estimar_tokens, _verificar_contexto
+from src.etapa1 import _verificar_contexto
+from src.evidence_utils import (
+    find_span_case_insensitive as _find_span_case_insensitive,
+    gerar_evidencia_local as _gerar_evidencia_tema_local,
+    inferir_pagina_por_posicao as _inferir_pagina_por_posicao,
+    merge_evidencia as _merge_evidencia,
+    normalizar_campo_texto as _norm_text,
+    normalizar_evidencia as _normalizar_evidencia,
+    normalizar_evidencias_campos as _normalizar_evidencias_tema,
+    normalizar_int as _normalizar_int,
+)
 from src.llm_client import chamar_llm, chamar_llm_json
 from src.model_router import TaskType, get_model_for_task
 from src.models import CampoEvidencia, ResultadoEtapa1, ResultadoEtapa2, TemaEtapa2
 from src.prompt_loader import build_messages
 from src.sumula_taxonomy import SUMULAS_STF, SUMULAS_STJ, SUMULAS_VALIDAS, SUMULAS_TAXONOMY_VERSION
+from src.token_manager import token_manager as _token_manager
 
 logger = logging.getLogger("assessor_ai")
+
+
+def estimar_tokens(texto: str, modelo: str = "gpt-4o") -> int:
+    """Estimate token count using tiktoken (with encoding cache)."""
+    return _token_manager.estimate_tokens(texto, modelo)
+
+
 
 
 # --- 4.3.1 Valid súmulas ---
@@ -213,7 +231,7 @@ def _validar_obices(temas: list[TemaEtapa2], texto_acordao: str) -> list[str]:
                 if num not in SUMULAS_VALIDAS:
                     alertas.append(
                         f"Tema {i}: Súmula {num} não está na lista permitida "
-                        f"(STJ: {sorted(SUMULAS_STJ)}, STF: {sorted(SUMULAS_STF)})"
+                        f"(total STJ={len(SUMULAS_STJ)}, STF={len(SUMULAS_STF)} súmulas válidas)"
                     )
                     logger.warning("⚠️  Súmula %d não prevista na lista permitida", num)
 
@@ -270,88 +288,6 @@ def _obice_tem_lastro_no_texto(obice: str, texto_acordao: str) -> bool:
     return False
 
 
-def _find_span_case_insensitive(texto: str, termo: str) -> tuple[int, int] | None:
-    """Find first case-insensitive span for term in text."""
-    termo_limpo = termo.strip()
-    if not texto or not termo_limpo:
-        return None
-
-    match = re.search(re.escape(termo_limpo), texto, re.IGNORECASE)
-    if match:
-        return match.start(), match.end()
-
-    termos = [t for t in termo_limpo.split() if t]
-    if not termos:
-        return None
-    pattern = r"\s+".join(re.escape(t) for t in termos)
-    match_flex = re.search(pattern, texto, re.IGNORECASE)
-    if match_flex:
-        return match_flex.start(), match_flex.end()
-    return None
-
-
-def _inferir_pagina_por_posicao(texto: str, pos: int) -> int:
-    """Infer page number by position using form-feed or explicit page markers."""
-    if "\f" in texto:
-        return texto.count("\f", 0, pos) + 1
-
-    anteriores = texto[:pos + 1]
-    marcadores = list(re.finditer(r"(?i)p[áa]gina\s+(\d{1,4})", anteriores))
-    if marcadores:
-        try:
-            return max(1, int(marcadores[-1].group(1)))
-        except ValueError:
-            pass
-    return 1
-
-
-def _gerar_evidencia_tema_local(valor: str, texto_entrada: str) -> CampoEvidencia | None:
-    """Generate deterministic evidence for one Stage 2 field value."""
-    span = _find_span_case_insensitive(texto_entrada, valor)
-    if not span:
-        return None
-
-    inicio, fim = span
-    linha_inicio = texto_entrada.rfind("\n", 0, inicio) + 1
-    linha_fim = texto_entrada.find("\n", fim)
-    if linha_fim == -1:
-        linha_fim = len(texto_entrada)
-
-    citacao = texto_entrada[linha_inicio:linha_fim].strip()
-    if not citacao:
-        citacao = texto_entrada[inicio:fim].strip()
-    if len(citacao) > 280:
-        contexto_inicio = max(0, inicio - 80)
-        contexto_fim = min(len(texto_entrada), fim + 80)
-        citacao = re.sub(r"\s+", " ", texto_entrada[contexto_inicio:contexto_fim]).strip()
-
-    ancora_inicio = max(0, inicio - 60)
-    ancora_fim = min(len(texto_entrada), fim + 60)
-    ancora = re.sub(r"\s+", " ", texto_entrada[ancora_inicio:ancora_fim]).strip()[:180]
-
-    return CampoEvidencia(
-        citacao_literal=citacao,
-        pagina=_inferir_pagina_por_posicao(texto_entrada, inicio),
-        ancora=ancora,
-        offset_inicio=inicio,
-    )
-
-
-def _merge_evidencia(existing: CampoEvidencia | None, generated: CampoEvidencia) -> CampoEvidencia:
-    """Merge existing evidence with generated evidence, preserving explicit values first."""
-    if existing is None:
-        return generated
-    return CampoEvidencia(
-        citacao_literal=existing.citacao_literal or generated.citacao_literal,
-        pagina=existing.pagina or generated.pagina,
-        ancora=existing.ancora or generated.ancora,
-        offset_inicio=(
-            existing.offset_inicio
-            if existing.offset_inicio is not None
-            else generated.offset_inicio
-        ),
-    )
-
 
 def _campo_tema_to_text(tema: TemaEtapa2, campo: str) -> str:
     """Resolve a theme field into text for deterministic evidence extraction."""
@@ -359,54 +295,6 @@ def _campo_tema_to_text(tema: TemaEtapa2, campo: str) -> str:
         return "; ".join(o.strip() for o in tema.obices_sumulas if o.strip())
     value = getattr(tema, campo, "")
     return str(value).strip()
-
-
-def _normalizar_int(value: object) -> int | None:
-    """Normalize integer-like values from structured payload."""
-    if value is None:
-        return None
-    try:
-        parsed = int(str(value).strip())
-    except (TypeError, ValueError):
-        return None
-    return parsed
-
-
-def _normalizar_evidencia(value: object) -> CampoEvidencia | None:
-    """Normalize one evidence object from structured JSON."""
-    if not isinstance(value, dict):
-        return None
-
-    citacao = _norm_text(value.get("citacao_literal"))
-    ancora = _norm_text(value.get("ancora"))
-    pagina_raw = _normalizar_int(value.get("pagina"))
-    offset_raw = _normalizar_int(value.get("offset_inicio"))
-    pagina = pagina_raw if pagina_raw and pagina_raw > 0 else None
-    offset_inicio = offset_raw if offset_raw is not None and offset_raw >= 0 else None
-
-    if not citacao and not ancora and pagina is None and offset_inicio is None:
-        return None
-
-    return CampoEvidencia(
-        citacao_literal=citacao,
-        pagina=pagina,
-        ancora=ancora,
-        offset_inicio=offset_inicio,
-    )
-
-
-def _normalizar_evidencias_tema(payload: object) -> dict[str, CampoEvidencia]:
-    """Normalize evidencias_campos mapping from structured JSON payload."""
-    if not isinstance(payload, dict):
-        return {}
-
-    evidencias: dict[str, CampoEvidencia] = {}
-    for campo, raw in payload.items():
-        evidencia = _normalizar_evidencia(raw)
-        campo_norm = str(campo).strip()
-        if evidencia and campo_norm:
-            evidencias[campo_norm] = evidencia
-    return evidencias
 
 
 def _enriquecer_evidencias_tema(tema: TemaEtapa2, texto_acordao: str) -> None:

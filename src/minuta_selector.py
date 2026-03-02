@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from pathlib import Path
 
 logger = logging.getLogger("assessor_ai")
@@ -26,21 +27,26 @@ BASE_DIR    = Path(__file__).resolve().parent.parent
 INDEX_FILE  = BASE_DIR / "minutas_referencia" / "index.json"
 TEXTOS_DIR  = BASE_DIR / "minutas_referencia" / "textos"
 
-# Cache em memória (carregado uma vez)
+# Cache em memória (carregado uma vez) — protegido por lock para thread-safety
 _INDEX: list[dict] | None = None
+_INDEX_LOCK = threading.Lock()
 MAX_CHARS_REFERENCIA = 6_000  # ~1500 tokens — suficiente sem estourar contexto
 
 
 def _carregar_indice() -> list[dict]:
-    """Carrega o índice em memória (lazy, singleton)."""
+    """Carrega o índice em memória (lazy, singleton, thread-safe)."""
     global _INDEX
-    if _INDEX is None:
-        if not INDEX_FILE.exists():
-            logger.warning("Índice de minutas não encontrado: %s", INDEX_FILE)
-            _INDEX = []
-        else:
-            _INDEX = json.loads(INDEX_FILE.read_text(encoding="utf-8"))
-            logger.info("📚 %d minutas de referência carregadas.", len(_INDEX))
+    if _INDEX is not None:
+        return _INDEX
+    with _INDEX_LOCK:
+        # Double-checked locking: another thread may have loaded it while we waited
+        if _INDEX is None:
+            if not INDEX_FILE.exists():
+                logger.warning("Índice de minutas não encontrado: %s", INDEX_FILE)
+                _INDEX = []
+            else:
+                _INDEX = json.loads(INDEX_FILE.read_text(encoding="utf-8"))
+                logger.info("📚 %d minutas de referência carregadas.", len(_INDEX))
     return _INDEX
 
 
@@ -175,5 +181,6 @@ def selecionar_minuta_referencia(
 def recarregar_indice() -> None:
     """Força recarregamento do índice (útil após importar novas minutas)."""
     global _INDEX
-    _INDEX = None
+    with _INDEX_LOCK:
+        _INDEX = None
     _carregar_indice()
