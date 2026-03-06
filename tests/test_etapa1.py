@@ -80,6 +80,12 @@ class TestParsingEtapa1:
     def test_parse_especie(self) -> None:
         assert "RECURSO ESPECIAL" in _parse_especie_recurso("RECURSO ESPECIAL CÍVEL")
         assert "EXTRAORDINÁRIO" in _parse_especie_recurso("RECURSO EXTRAORDINÁRIO")
+        assert "AGRAVO EM RECURSO ESPECIAL" in _parse_especie_recurso("Agravo em Recurso Especial").upper()
+        assert "AGRAVO REGIMENTAL" in _parse_especie_recurso("AGRAVO REGIMENTAL").upper()
+        assert "AGRAVO INTERNO" in _parse_especie_recurso("Agravo Interno").upper()
+        assert "EMBARGOS DE DECLARAÇÃO" in _parse_especie_recurso("Embargos de Declaração").upper()
+        assert "RECURSO DE REVISTA" in _parse_especie_recurso("Recurso de Revista").upper()
+        assert "ARESP" in _parse_especie_recurso("AREsp n. 1234/PR").upper()
 
     def test_parse_dispositivos(self) -> None:
         texto = "Dispositivos Violados:\n- art. 5 da CF\n- art. 927 do CC\n"

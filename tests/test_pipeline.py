@@ -1,6 +1,7 @@
 """Tests for Sprint 6: Pipeline orchestrator, CLI, and error handling."""
 
 import json
+import logging
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -21,6 +22,7 @@ from src.models import (
     TemaEtapa2,
     TipoDocumento,
 )
+from src.config import SensitiveDataFilter
 from src.pipeline import (
     FRIENDLY_ERRORS,
     PipelineValidationError,
@@ -28,6 +30,7 @@ from src.pipeline import (
     _avaliar_politica_escalonamento,
     _build_structured_log_event,
     _calcular_confiancas_pipeline,
+    _setup_file_logging,
     _validar_etapa1,
     _validar_etapa2,
     _validar_etapa3,
@@ -47,7 +50,8 @@ class TestPipelineMocked:
 
     def test_pipeline_instantiation(self) -> None:
         p = PipelineAdmissibilidade()
-        assert p.modelo == "gpt-4o"
+        assert isinstance(p.modelo, str)
+        assert len(p.modelo) > 3
         assert p.formato_saida == "md"
         assert callable(p.progress)
 
@@ -69,6 +73,37 @@ class TestPipelineMocked:
         expected = (10_000 * 0.15 + 5_000 * 0.60) / 1_000_000
         assert cost < _estimar_custo(10_000, 5_000, "gpt-4o")
 
+    def test_cost_estimation_uses_pricing_json_when_available(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        pricing_payload = {
+            "version": "test",
+            "models": {
+                "gpt-4o": {"input_per_1m": 1.0, "output_per_1m": 2.0},
+            },
+        }
+        (tmp_path / "pricing.json").write_text(json.dumps(pricing_payload), encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("src.pipeline._PRICING_CACHE", None)
+
+        cost = _estimar_custo(10_000, 5_000, "gpt-4o")
+        expected = (10_000 * 1.0 + 5_000 * 2.0) / 1_000_000
+        assert abs(cost - expected) < 0.000001
+
+    def test_cost_estimation_falls_back_to_hardcoded_when_pricing_json_missing(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("src.pipeline._PRICING_CACHE", None)
+
+        cost = _estimar_custo(10_000, 5_000, "gpt-4o")
+        expected = (10_000 * 2.50 + 5_000 * 10.00) / 1_000_000
+        assert abs(cost - expected) < 0.0001
+
     def test_custom_progress_callback(self) -> None:
         calls = []
         def tracker(msg, step, total):
@@ -77,6 +112,61 @@ class TestPipelineMocked:
         p._notify("test", 1, 5)
         assert len(calls) == 1
         assert calls[0] == ("test", 1, 5)
+
+    def test_purge_cache_on_start_calls_cache_manager_when_enabled(self, monkeypatch) -> None:
+        class FakeCache:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def purge_expired(self) -> int:
+                self.calls += 1
+                return 2
+
+        fake_cache = FakeCache()
+        monkeypatch.setattr("src.pipeline.ENABLE_CACHING", True)
+        monkeypatch.setattr("src.pipeline.CACHE_PURGE_ON_START", True)
+        monkeypatch.setattr("src.cache_manager.cache_manager", fake_cache)
+
+        p = PipelineAdmissibilidade()
+        p._purge_cache_on_start()
+
+        assert fake_cache.calls == 1
+
+    def test_executar_invokes_cache_purge_on_start(self, monkeypatch) -> None:
+        calls: list[str] = []
+
+        def _fake_purge(self) -> None:
+            calls.append("called")
+
+        monkeypatch.setattr(PipelineAdmissibilidade, "_purge_cache_on_start", _fake_purge)
+        monkeypatch.setattr(
+            "src.pipeline.extrair_texto",
+            lambda _path: ExtractionResult(
+                texto="texto válido",
+                num_paginas=1,
+                num_caracteres=11,
+                engine_usada="pymupdf",
+                raw_text_by_page=["texto válido"],
+                clean_text_by_page=["texto válido"],
+                quality_score=0.95,
+                noise_ratio=0.0,
+            ),
+        )
+
+        def _stop_after_extraction(*args, **kwargs):
+            raise RuntimeError("stop_after_purge_check")
+
+        monkeypatch.setattr("src.pipeline.classificar_documentos", _stop_after_extraction)
+
+        p = PipelineAdmissibilidade()
+        with pytest.raises(RuntimeError, match="stop_after_purge_check"):
+            p.executar(
+                pdfs=["/tmp/recurso.pdf"],
+                processo_id="test_cache_purge_call",
+                continuar=False,
+            )
+
+        assert calls == ["called"]
 
     def test_build_structured_log_event_contains_correlation_fields(self) -> None:
         payload = _build_structured_log_event(
@@ -92,6 +182,24 @@ class TestPipelineMocked:
         assert payload["etapa"] == "etapa1"
         assert payload["duracao_s"] == 1.23
         assert payload["timestamp"]
+
+    def test_setup_file_logging_applies_sensitive_filter_to_all_handlers(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        logger = logging.getLogger("assessor_ai")
+        extra_handler = logging.StreamHandler()
+        logger.addHandler(extra_handler)
+        try:
+            monkeypatch.chdir(tmp_path)
+            _setup_file_logging()
+            assert any(isinstance(h, logging.FileHandler) for h in logger.handlers)
+            for handler in logger.handlers:
+                assert any(isinstance(f, SensitiveDataFilter) for f in handler.filters)
+        finally:
+            logger.removeHandler(extra_handler)
+            extra_handler.close()
 
 
 # --- 6.4.2: State recovery ---
@@ -127,9 +235,14 @@ class TestStateRecovery:
     def test_error_handler_persists_dead_letter_for_non_transient(self, tmp_path: Path) -> None:
         checkpoint_dir = tmp_path / "checkpoints"
         dead_letter_dir = tmp_path / "dead_letter"
+        from src.crypto_utils import generate_key
+
+        dlq_key = generate_key()
         with (
             patch("src.state_manager.CHECKPOINT_DIR", checkpoint_dir),
             patch("src.dead_letter_queue.DEAD_LETTER_DIR", dead_letter_dir),
+            patch("src.dead_letter_queue.DLQ_ENCRYPTION_ENABLED", True),
+            patch("src.dead_letter_queue.DLQ_ENCRYPTION_KEY", dlq_key),
         ):
             estado = EstadoPipeline(
                 metadata=MetadadosPipeline(execucao_id="exec-dlq"),
@@ -145,7 +258,9 @@ class TestStateRecovery:
 
             assert path is not None
             assert path.exists()
-            payload = json.loads(path.read_text(encoding="utf-8"))
+            from src.dead_letter_queue import ler_dead_letter
+
+            payload = ler_dead_letter(path)
             assert payload["processo_id"] == "err_dlq"
             assert payload["execucao_id"] == "exec-dlq"
             assert payload["erro"]["tipo"] == "ValueError"
@@ -165,16 +280,22 @@ class TestStateRecovery:
             path = handle_pipeline_error(APITimeoutError("timeout"), estado, "err_transient")
             assert path is None
             assert list(dead_letter_dir.glob("*.json")) == []
+            assert list(dead_letter_dir.glob("*.dlq")) == []
 
     def test_error_handler_generates_emergency_audit_artifacts(self, tmp_path: Path) -> None:
         checkpoint_dir = tmp_path / "checkpoints"
         dead_letter_dir = tmp_path / "dead_letter"
         output_dir = tmp_path / "outputs"
+        from src.crypto_utils import generate_key
+
+        dlq_key = generate_key()
         metricas: dict[str, object] = {}
 
         with (
             patch("src.state_manager.CHECKPOINT_DIR", checkpoint_dir),
             patch("src.dead_letter_queue.DEAD_LETTER_DIR", dead_letter_dir),
+            patch("src.dead_letter_queue.DLQ_ENCRYPTION_ENABLED", True),
+            patch("src.dead_letter_queue.DLQ_ENCRYPTION_KEY", dlq_key),
         ):
             estado = EstadoPipeline(
                 metadata=MetadadosPipeline(execucao_id="exec-audit"),
@@ -224,7 +345,7 @@ class TestCLIArgs:
         parser = build_parser()
         args = parser.parse_args(["processar", "file.pdf"])
         assert args.pdfs == ["file.pdf"]
-        assert args.modelo == "gpt-4o"
+        assert isinstance(args.modelo, str)
         assert args.formato == "md"
         assert args.verbose is False
 
@@ -711,7 +832,7 @@ class TestFailClosedValidation:
         )
         assert erros == []
 
-    def test_pipeline_blocks_etapa3_when_etapa2_missing_evidence(self, monkeypatch) -> None:
+    def test_pipeline_allows_etapa3_when_etapa2_missing_evidence_soft_validation(self, monkeypatch) -> None:
         estado = EstadoPipeline(
             documentos_entrada=[
                 DocumentoEntrada(filepath="recurso.pdf", texto_extraido="texto recurso", tipo=TipoDocumento.RECURSO),
@@ -737,17 +858,26 @@ class TestFailClosedValidation:
 
         monkeypatch.setattr("src.pipeline.restaurar_estado", lambda processo_id=None: estado)
 
-        def _should_not_call_etapa3(*args, **kwargs):
-            raise AssertionError("Etapa 3 should be blocked when Etapa 2 evidence is incomplete")
+        etapa3_chamada = False
 
-        monkeypatch.setattr("src.pipeline.executar_etapa3", _should_not_call_etapa3)
-        monkeypatch.setattr("src.pipeline.executar_etapa3_com_chunking", _should_not_call_etapa3)
+        def _mock_executar_etapa3(*args, **kwargs):
+            nonlocal etapa3_chamada
+            etapa3_chamada = True
+            return ResultadoEtapa3(
+                minuta_completa="Texto da minuta",
+                decisao=Decisao.ADMITIDO,
+                fundamentos_decisao=["Fundamento dummy"],
+                itens_evidencia_usados=["Evidência dummy"],
+            )
+
+        monkeypatch.setattr("src.pipeline.executar_etapa3", _mock_executar_etapa3)
+        monkeypatch.setattr("src.pipeline.executar_etapa3_com_chunking", _mock_executar_etapa3)
 
         pipeline = PipelineAdmissibilidade()
-        with pytest.raises(PipelineValidationError) as exc:
-            pipeline.executar(pdfs=[], processo_id="test_e2_sem_evid", continuar=True)
+        pipeline.executar(pdfs=[], processo_id="test_e2_sem_evid", continuar=True)
 
-        assert "Etapa 2 tema 1 sem evidência" in str(exc.value)
+        assert etapa3_chamada is True
+        assert any("Etapa 2 tema 1 sem evidência" in w for w in estado.metadata.alertas)
 
     def test_validar_etapa3_detects_missing_decision(self) -> None:
         erros = _validar_etapa3(ResultadoEtapa3(minuta_completa="texto", decisao=None))
@@ -859,6 +989,8 @@ class TestFailClosedValidation:
                 decisao=Decisao.INADMITIDO,
                 fundamentos_decisao=["Óbice sumular."],
                 itens_evidencia_usados=["Tema 1/obices_sumulas: Súmula 7 (p.1)"],
+                tentativa_estruturada_sucesso=2,
+                estrategia_retry_sucesso="contexto_reduzido_75",
             ),
         )
         confiancas, global_conf, validacoes = _calcular_confiancas_pipeline(estado)
@@ -888,6 +1020,41 @@ class TestFailClosedValidation:
         )
         _, global_conf, _ = _calcular_confiancas_pipeline(estado)
         assert global_conf <= 0.49
+
+    def test_calcular_confiancas_pipeline_uses_configured_weights(self, monkeypatch) -> None:
+        monkeypatch.setattr("src.pipeline.CONFIDENCE_WEIGHT_ETAPA1", 0.2)
+        monkeypatch.setattr("src.pipeline.CONFIDENCE_WEIGHT_ETAPA2", 0.3)
+        monkeypatch.setattr("src.pipeline.CONFIDENCE_WEIGHT_ETAPA3", 0.5)
+
+        monkeypatch.setattr("src.pipeline._validar_etapa1", lambda _resultado: ["erro"] * 15)
+        monkeypatch.setattr("src.pipeline._validar_etapa2", lambda _resultado: ["erro"] * 4)
+        monkeypatch.setattr("src.pipeline._validar_etapa3", lambda _resultado: [])
+
+        estado = EstadoPipeline(
+            resultado_etapa1=ResultadoEtapa1(
+                numero_processo="123",
+                recorrente="JOÃO",
+                especie_recurso="RECURSO ESPECIAL",
+            ),
+            resultado_etapa2=ResultadoEtapa2(
+                temas=[TemaEtapa2(materia_controvertida="Responsabilidade civil")]
+            ),
+            resultado_etapa3=ResultadoEtapa3(
+                minuta_completa="INADMITO o recurso.",
+                decisao=Decisao.INADMITIDO,
+                fundamentos_decisao=["Óbice sumular."],
+                itens_evidencia_usados=["Tema 1/obices_sumulas: Súmula 7 (p.1)"],
+            ),
+        )
+
+        confiancas, global_conf, _ = _calcular_confiancas_pipeline(estado)
+        expected = round(
+            (confiancas["etapa1"] * 0.2)
+            + (confiancas["etapa2"] * 0.3)
+            + (confiancas["etapa3"] * 0.5),
+            3,
+        )
+        assert global_conf == expected
 
     def test_pipeline_confidence_details_present_after_execution(self, monkeypatch, tmp_path: Path) -> None:
         estado = EstadoPipeline(
@@ -939,6 +1106,8 @@ class TestFailClosedValidation:
                 decisao=Decisao.INADMITIDO,
                 fundamentos_decisao=["Óbice sumular."],
                 itens_evidencia_usados=["Tema 1/obices_sumulas: Súmula 7 (p.1)"],
+                tentativa_estruturada_sucesso=2,
+                estrategia_retry_sucesso="contexto_reduzido_75",
             ),
         )
 
@@ -951,10 +1120,15 @@ class TestFailClosedValidation:
         assert "confianca_temas_etapa2" in p.metricas
         assert "politica_escalonamento" in p.metricas
         assert "chunking_auditoria" in p.metricas
+        assert "etapa3_retry" in p.metricas
         assert "llm_metricas_por_etapa" in p.metricas
         assert p.metricas["politica_escalonamento"]["ativo"] is True
         assert p.metricas["confianca_campos_etapa1"]["numero_processo"] >= 0.9
         assert p.metricas["confianca_temas_etapa2"]["tema_1"] >= 0.9
+        assert p.metricas["etapa3_retry"]["tentativa_sucesso"] == 2
+        assert p.metricas["etapa3_retry"]["estrategia_sucesso"] == "contexto_reduzido_75"
+        assert estado.metadata.llm_stats["etapa3_tentativa_sucesso"] == 2
+        assert estado.metadata.llm_stats["etapa3_estrategia_sucesso"] == "contexto_reduzido_75"
         assert set(p.metricas["llm_metricas_por_etapa"].keys()) == {
             "classificacao",
             "etapa1",

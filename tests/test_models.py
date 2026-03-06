@@ -150,6 +150,8 @@ class TestResultadoEtapa3:
         assert r.aviso_inconclusivo is False
         assert r.motivo_bloqueio_codigo == ""
         assert r.motivo_bloqueio_descricao == ""
+        assert r.tentativa_estruturada_sucesso == 0
+        assert r.estrategia_retry_sucesso == ""
 
     def test_admitido_decision(self) -> None:
         r = ResultadoEtapa3(decisao=Decisao.ADMITIDO)
@@ -185,6 +187,7 @@ class TestEstadoPipeline:
         assert estado.metadata.prompt_version == ""
         assert estado.metadata.prompt_hash_sha256 == ""
         assert estado.metadata.llm_stats == {}
+        assert estado.metadata.etapa3_retry == {}
         assert estado.metadata.execucao_id == ""
         assert estado.metadata.motivo_bloqueio_codigo == ""
         assert estado.metadata.motivo_bloqueio_descricao == ""

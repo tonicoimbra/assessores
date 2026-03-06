@@ -1,5 +1,5 @@
-Execute a tarefa 7.4 da sprint 7 que está em @TASKS.md.
+Execute a próxima tarefa que está em @TASKS_MELHORIAS_02.md.
 Use os agentes necessários que estão referenciados em @agents/README.md
 para a execução de cada sub tarefa.
-Após concluir cada sub tarefa, marque um "X" na subtarefa em @TASKS.md.
+Após concluir cada sub tarefa, marque um "X" na subtarefa em @TASKS_MELHORIAS_02.md.
 Marque um "X" ao concluir tarefas e sprints também.

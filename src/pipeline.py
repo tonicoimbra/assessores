@@ -13,9 +13,14 @@ from typing import Any
 
 from src.classifier import classificar_documentos, validar_classificacao_documentos
 from src.config import (
+    CACHE_PURGE_ON_START,
     CONFIDENCE_THRESHOLD_FIELD,
     CONFIDENCE_THRESHOLD_GLOBAL,
     CONFIDENCE_THRESHOLD_THEME,
+    CONFIDENCE_WEIGHT_ETAPA1,
+    CONFIDENCE_WEIGHT_ETAPA2,
+    CONFIDENCE_WEIGHT_ETAPA3,
+    ENABLE_CACHING,
     ENABLE_CHUNKING,
     ENABLE_CLASSIFICATION_MANUAL_REVIEW,
     ENABLE_CONFIDENCE_ESCALATION,
@@ -30,12 +35,14 @@ from src.config import (
     CLASSIFICATION_MANUAL_REVIEW_CONFIDENCE_THRESHOLD,
     CLASSIFICATION_MANUAL_REVIEW_MARGIN_THRESHOLD,
     SensitiveDataFilter,
+    ensure_sensitive_filter_all_handlers,
     ENABLE_CONTEXT_COVERAGE_GATE,
     CONTEXT_MIN_COVERAGE_RATIO,
     REQUIRE_EXACTLY_ONE_RECURSO,
     MODEL_LEGAL_ANALYSIS,
     MODEL_DRAFT_GENERATION,
 )
+from src.document_extractor import extract_text as extrair_texto
 
 
 from src.dead_letter_queue import salvar_dead_letter
@@ -65,7 +72,6 @@ from src.output_formatter import (
     salvar_minuta,
     salvar_minuta_docx,
 )
-from src.pdf_processor import extrair_texto
 from src.prompt_loader import ensure_prompt_contract, get_pipeline_prompt_signature
 from src.retention_manager import aplicar_politica_retencao
 from src.state_manager import limpar_checkpoints, restaurar_estado, salvar_estado
@@ -81,6 +87,9 @@ FRIENDLY_ERRORS: dict[str, str] = {
     "APITimeoutError": "⏰ Timeout na API. Verifique conexão ou aumente LLM_TIMEOUT no .env",
     "APIConnectionError": "🔌 Erro de conexão com a API. Verifique sua internet.",
     "PDFExtractionError": "📄 Erro ao processar PDF. Verifique se o arquivo é um PDF válido.",
+    "DocumentExtractionError": (
+        "📄 Erro ao processar documento. Envie arquivos .pdf ou .docx válidos."
+    ),
     "FileNotFoundError": "📁 Arquivo não encontrado. Verifique o caminho informado.",
     "DocumentClassificationError": (
         "📚 Não foi possível validar os tipos de documento de entrada. "
@@ -445,7 +454,11 @@ def _calcular_confiancas_pipeline(
             inconclusivo=(r3.decisao == Decisao.INCONCLUSIVO),
         )
 
-    pesos = {"etapa1": 0.35, "etapa2": 0.35, "etapa3": 0.30}
+    pesos = {
+        "etapa1": CONFIDENCE_WEIGHT_ETAPA1,
+        "etapa2": CONFIDENCE_WEIGHT_ETAPA2,
+        "etapa3": CONFIDENCE_WEIGHT_ETAPA3,
+    }
     etapas_executadas = [
         etapa for etapa, resultado in (
             ("etapa1", r1),
@@ -480,6 +493,7 @@ def _setup_file_logging() -> Path:
     root_logger = logging.getLogger("assessor_ai")
     if not any(isinstance(h, logging.FileHandler) for h in root_logger.handlers):
         root_logger.addHandler(file_handler)
+    ensure_sensitive_filter_all_handlers(root_logger)
 
     return log_path
 
@@ -671,27 +685,67 @@ def handle_pipeline_error(
     return dlq_path
 
 
-# GPT-4o pricing (USD per 1M tokens, as of 2024)
-PRICING = {
+# Hardcoded pricing fallback (USD per 1M tokens).
+PRICING_FALLBACK: dict[str, dict[str, float]] = {
     # OpenAI models
-    "gpt-4o": {"input": 2.50, "output": 10.00},
-    "gpt-4o-mini": {"input": 0.15, "output": 0.60},
-    "gpt-4.1": {"input": 2.00, "output": 8.00},
-    "gpt-4.1-mini": {"input": 0.15, "output": 0.60},
+    "gpt-4o": {"input_per_1m": 2.50, "output_per_1m": 10.00},
+    "gpt-4o-mini": {"input_per_1m": 0.15, "output_per_1m": 0.60},
+    "gpt-4.1": {"input_per_1m": 2.00, "output_per_1m": 8.00},
+    "gpt-4.1-mini": {"input_per_1m": 0.15, "output_per_1m": 0.60},
     # OpenRouter models
-    "deepseek/deepseek-r1": {"input": 0.55, "output": 2.19},
-    "deepseek/deepseek-chat-v3-0324:free": {"input": 0.00, "output": 0.00},
-    "google/gemini-2.0-flash-001": {"input": 0.10, "output": 0.40},
-    "google/gemini-2.5-flash-preview": {"input": 0.15, "output": 0.60},
-    "qwen/qwen-2.5-72b-instruct": {"input": 0.12, "output": 0.39},
-    "anthropic/claude-3.5-sonnet": {"input": 3.00, "output": 15.00},
+    "deepseek/deepseek-r1": {"input_per_1m": 0.55, "output_per_1m": 2.19},
+    "deepseek/deepseek-chat-v3-0324:free": {"input_per_1m": 0.00, "output_per_1m": 0.00},
+    "google/gemini-2.0-flash-001": {"input_per_1m": 0.10, "output_per_1m": 0.40},
+    "google/gemini-2.5-flash-preview": {"input_per_1m": 0.15, "output_per_1m": 0.60},
+    "qwen/qwen-2.5-72b-instruct": {"input_per_1m": 0.12, "output_per_1m": 0.39},
+    "anthropic/claude-3.5-sonnet": {"input_per_1m": 3.00, "output_per_1m": 15.00},
 }
+_PRICING_CACHE: dict[str, dict[str, float]] | None = None
+
+
+def _carregar_pricing() -> dict[str, dict[str, float]]:
+    """Load pricing from pricing.json with in-memory cache and fallback."""
+    global _PRICING_CACHE
+    if _PRICING_CACHE is not None:
+        return _PRICING_CACHE
+
+    pricing_path = Path("pricing.json")
+    if pricing_path.exists():
+        try:
+            payload = json.loads(pricing_path.read_text(encoding="utf-8"))
+            models = payload.get("models", {})
+            parsed: dict[str, dict[str, float]] = {}
+            for model_name, price_data in models.items():
+                if not isinstance(model_name, str) or not isinstance(price_data, dict):
+                    continue
+                input_per_1m = float(price_data.get("input_per_1m", 0.0))
+                output_per_1m = float(price_data.get("output_per_1m", 0.0))
+                if input_per_1m < 0 or output_per_1m < 0:
+                    continue
+                parsed[model_name] = {
+                    "input_per_1m": input_per_1m,
+                    "output_per_1m": output_per_1m,
+                }
+
+            if parsed:
+                _PRICING_CACHE = parsed
+                return _PRICING_CACHE
+            logger.warning("pricing.json encontrado, mas sem modelos válidos; usando fallback hardcoded.")
+        except Exception as exc:
+            logger.warning("Falha ao carregar pricing.json (%s). Usando fallback hardcoded.", exc)
+
+    _PRICING_CACHE = PRICING_FALLBACK
+    return _PRICING_CACHE
 
 
 def _estimar_custo(prompt_tokens: int, completion_tokens: int, modelo: str) -> float:
     """Estimate cost in USD based on token usage."""
-    pricing = PRICING.get(modelo, PRICING["gpt-4o"])
-    return (prompt_tokens * pricing["input"] + completion_tokens * pricing["output"]) / 1_000_000
+    pricing_table = _carregar_pricing()
+    pricing = pricing_table.get(modelo, pricing_table.get("gpt-4o", PRICING_FALLBACK["gpt-4o"]))
+    return (
+        prompt_tokens * pricing["input_per_1m"]
+        + completion_tokens * pricing["output_per_1m"]
+    ) / 1_000_000
 
 
 ProgressCallback = Callable[[str, int, int], None]
@@ -738,6 +792,19 @@ class PipelineAdmissibilidade:
         self._ultimo_processo_id: str = "default"
         logger.info("Prompt profile ativo: %s", PROMPT_PROFILE)
 
+    def _purge_cache_on_start(self) -> None:
+        """Purge expired cache entries at pipeline start when enabled."""
+        if not ENABLE_CACHING or not CACHE_PURGE_ON_START:
+            return
+        try:
+            from src.cache_manager import cache_manager
+
+            purged = cache_manager.purge_expired()
+            if purged > 0:
+                logger.info("Cache purge on start: %d entradas removidas", purged)
+        except Exception as exc:
+            logger.warning("Falha ao executar purge de cache no início: %s", exc)
+
     def _notify(self, msg: str, step: int, total: int = 6) -> None:
         self.progress(msg, step, total)
 
@@ -753,10 +820,10 @@ class PipelineAdmissibilidade:
         continuar: bool = False,
     ) -> ResultadoEtapa3:
         """
-        Execute the full pipeline: PDF→Classify→Etapa1→Etapa2→Etapa3→Output.
+        Execute the full pipeline: Document→Classify→Etapa1→Etapa2→Etapa3→Output.
 
         Args:
-            pdfs: List of PDF file paths.
+            pdfs: List of document file paths (.pdf/.docx).
             processo_id: Process identifier for checkpointing.
             continuar: If True, resume from saved checkpoint.
 
@@ -766,6 +833,7 @@ class PipelineAdmissibilidade:
         inicio = time.time()
         token_tracker.calls.clear()
         self._ultimo_processo_id = processo_id
+        self._purge_cache_on_start()
 
         # 6.1.3 — Check for saved state
         estado: EstadoPipeline | None = None
@@ -1382,6 +1450,11 @@ class PipelineAdmissibilidade:
                     modelo_override=self.modelo,
                     chunking_audit=etapa3_chunking_audit,
                 )
+            if estado.resultado_etapa3 is not None:
+                estado.metadata.etapa3_retry = {
+                    "tentativa_sucesso": int(estado.resultado_etapa3.tentativa_estruturada_sucesso),
+                    "estrategia_sucesso": estado.resultado_etapa3.estrategia_retry_sucesso,
+                }
             if etapa3_chunking_audit:
                 estado.metadata.chunking_auditoria["etapa3"] = etapa3_chunking_audit
                 if etapa3_chunking_audit.get("aplicado"):
@@ -1526,6 +1599,12 @@ class PipelineAdmissibilidade:
         self.metricas["confianca_global"] = confianca_global
         self.metricas["politica_escalonamento"] = politica_escalonamento
         self.metricas["chunking_auditoria"] = estado.metadata.chunking_auditoria
+        if estado.resultado_etapa3 is not None:
+            estado.metadata.etapa3_retry = {
+                "tentativa_sucesso": int(estado.resultado_etapa3.tentativa_estruturada_sucesso),
+                "estrategia_sucesso": estado.resultado_etapa3.estrategia_retry_sucesso,
+            }
+        self.metricas["etapa3_retry"] = estado.metadata.etapa3_retry
         self.metricas["motivo_bloqueio_codigo"] = estado.metadata.motivo_bloqueio_codigo
         self.metricas["motivo_bloqueio_descricao"] = estado.metadata.motivo_bloqueio_descricao
         estado.metadata.llm_stats = {
@@ -1533,6 +1612,8 @@ class PipelineAdmissibilidade:
             "calls_truncadas": float(token_tracker.total_truncated_calls),
             "latencia_media_ms": round(token_tracker.average_latency_ms, 2),
             "metricas_por_etapa": llm_metricas_por_etapa,
+            "etapa3_tentativa_sucesso": estado.metadata.etapa3_retry.get("tentativa_sucesso", 0),
+            "etapa3_estrategia_sucesso": estado.metadata.etapa3_retry.get("estrategia_sucesso", ""),
         }
 
         alertas_validacao_auditoria: list[str] = []

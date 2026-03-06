@@ -18,6 +18,10 @@ RECURSO_PATTERNS: list[str] = [
     r"PROJUDI\s*[-–—]\s*Recurso",
     r"Recurso\s+Especial",
     r"Recurso\s+Extraordin[aá]rio",
+    r"Agravo\s+(?:em\s+Recurso\s+Especial|Regimental|Interno)",
+    r"AREsp\b",
+    r"Embargos?\s+de\s+Declara(?:[çc][aã]o)",
+    r"recurso\s+de\s+revista",
     r"raz[oõ]es\s+recursais",
     r"art\.\s*105\s*,\s*III",
     r"art\.\s*102\s*,\s*III",
@@ -38,6 +42,8 @@ ACORDAO_PATTERNS: list[str] = [
 CHEAP_VERIFIER_RECURSO_PATTERNS: list[str] = [
     r"recurso\s+especial",
     r"recurso\s+extraordin[aá]rio",
+    r"agravo\s+(?:em\s+recurso|regimental|interno)",
+    r"aresp\b",
     r"raz[oõ]es\s+recursais",
     r"art\.\s*105\s*,\s*iii",
     r"art\.\s*102\s*,\s*iii",
@@ -59,13 +65,41 @@ COMPOSITE_WEIGHT_VERIFIER: float = 0.10
 COMPOSITE_MIN_CONFIDENCE: float = 0.55
 COMPOSITE_MIN_MARGIN: float = 0.12
 COMPOSITE_STRONG_CONFLICT_CONFIDENCE: float = 0.75
+CLASSIFIER_WINDOW_SIZE_CHARS: int = 5000
 
 # LLM classification prompt
 CLASSIFICATION_PROMPT: str = """Você é um classificador de documentos jurídicos.
 Analise o texto e classifique como RECURSO ou ACORDAO.
 
-RECURSO = Petição de recurso especial ou extraordinário (razões recursais)
-ACORDAO = Acórdão, decisão colegiada do tribunal
+Definições:
+- RECURSO = petição recursal (Recurso Especial, Recurso Extraordinário, Agravos, Embargos etc.).
+- ACORDAO = decisão colegiada do tribunal (ementa, relatório, voto e dispositivo).
+
+Exemplos few-shot (anonimizados):
+
+EXEMPLO RECURSO 1:
+Trecho: "PROJUDI - Recurso: Recurso Especial interposto, com fundamento no art. 105, III, a, da CF. Razões recursais apresentadas pelo Recorrente."
+Resposta: {"tipo": "RECURSO", "confianca": 0.97}
+
+EXEMPLO RECURSO 2:
+Trecho: "Recurso Extraordinário fundado no art. 102, III, da Constituição Federal. Requer processamento e remessa ao STF."
+Resposta: {"tipo": "RECURSO", "confianca": 0.96}
+
+EXEMPLO LIMITROFE EMBARGOS:
+Trecho: "Embargos de Declaração opostos pela parte recorrente para sanar omissão no acórdão recorrido."
+Resposta: {"tipo": "RECURSO", "confianca": 0.93}
+
+EXEMPLO LIMITROFE AGRAVO REGIMENTAL:
+Trecho: "Agravo Regimental interposto contra decisão monocrática, com pedido de reconsideração."
+Resposta: {"tipo": "RECURSO", "confianca": 0.94}
+
+EXEMPLO ACORDAO 1:
+Trecho: "ACÓRDÃO. Vistos, relatados e discutidos estes autos. ACORDAM os Desembargadores da Câmara Cível em negar provimento."
+Resposta: {"tipo": "ACORDAO", "confianca": 0.97}
+
+EXEMPLO ACORDAO 2:
+Trecho: "EMENTA: Apelação cível. Relator: Des. Fulano. Julga-se improcedente o recurso, por unanimidade."
+Resposta: {"tipo": "ACORDAO", "confianca": 0.95}
 
 Responda APENAS com JSON:
 {"tipo": "RECURSO" ou "ACORDAO", "confianca": 0.0 a 1.0}"""
@@ -285,15 +319,45 @@ def _calcular_score_heuristico(
     if not texto:
         return 0.0
 
-    # Search in first 5000 chars for efficiency
-    trecho = texto[:5000].upper()
-    matches = sum(
-        1 for pattern in patterns
-        if re.search(pattern, trecho, re.IGNORECASE)
-    )
+    trechos = _obter_janelas_classificacao(texto)
+    if not trechos:
+        return 0.0
 
     total = len(patterns)
-    return min(matches / max(total * 0.3, 1), 1.0)
+    best_score = 0.0
+    for trecho in trechos:
+        matches = sum(
+            1 for pattern in patterns
+            if re.search(pattern, trecho, re.IGNORECASE)
+        )
+        score = min(matches / max(total * 0.2, 1), 1.0)
+        best_score = max(best_score, score)
+    return best_score
+
+
+def _obter_janelas_classificacao(texto: str) -> list[str]:
+    """Return deduplicated search windows from start, middle and end of the document."""
+    if not texto:
+        return []
+
+    window = CLASSIFIER_WINDOW_SIZE_CHARS
+    length = len(texto)
+    half = window // 2
+    mid = length // 2
+
+    windows = [
+        texto[:window],
+        texto[max(0, mid - half): min(length, mid + half)],
+        texto[max(0, length - window):],
+    ]
+
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for trecho in windows:
+        if trecho and trecho not in seen:
+            deduped.append(trecho)
+            seen.add(trecho)
+    return deduped
 
 
 def _match_patterns_with_evidence(
@@ -301,19 +365,22 @@ def _match_patterns_with_evidence(
     patterns: list[str],
 ) -> tuple[list[str], list[str]]:
     """Return matched patterns and short evidence snippets for audit."""
-    trecho = texto[:5000]
+    trechos = _obter_janelas_classificacao(texto)
     matched_patterns: list[str] = []
     snippets: list[str] = []
+    matched_set: set[str] = set()
 
-    for pattern in patterns:
-        match = re.search(pattern, trecho, re.IGNORECASE)
-        if not match:
-            continue
-
-        matched_patterns.append(pattern)
-        snippet = re.sub(r"\s+", " ", match.group(0)).strip()[:120]
-        if snippet and snippet not in snippets:
-            snippets.append(snippet)
+    for trecho in trechos:
+        for pattern in patterns:
+            match = re.search(pattern, trecho, re.IGNORECASE)
+            if not match:
+                continue
+            if pattern not in matched_set:
+                matched_patterns.append(pattern)
+                matched_set.add(pattern)
+            snippet = re.sub(r"\s+", " ", match.group(0)).strip()[:120]
+            if snippet and snippet not in snippets:
+                snippets.append(snippet)
 
     return matched_patterns, snippets
 

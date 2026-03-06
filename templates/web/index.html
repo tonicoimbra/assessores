@@ -61,7 +61,7 @@
             </svg>
             Enviar Documentos
           </h2>
-          <p class="card-description">Faça upload do recurso e acórdão(s) em PDF para gerar a minuta de admissibilidade.
+          <p class="card-description">Faça upload do recurso e acórdão(s) em PDF ou DOCX para gerar a minuta de admissibilidade.
           </p>
         </div>
 
@@ -72,7 +72,7 @@
 
             <!-- Recurso -->
             <div class="upload-zone" id="zoneRecurso">
-              <input type="file" name="recurso_pdf" id="recurso_pdf" accept="application/pdf" required>
+              <input type="file" name="recurso_pdf" id="recurso_pdf" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required>
               <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
                 stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -80,14 +80,14 @@
                 <line x1="12" y1="18" x2="12" y2="12" />
                 <polyline points="9 15 12 12 15 15" />
               </svg>
-              <div class="upload-label">PDF do Recurso</div>
+              <div class="upload-label">Documento do Recurso (.pdf/.docx)</div>
               <div class="upload-hint">Clique ou arraste o arquivo</div>
               <div class="upload-filename" id="filenameRecurso"></div>
             </div>
 
             <!-- Acórdão -->
             <div class="upload-zone" id="zoneAcordao">
-              <input type="file" name="acordao_pdf" id="acordao_pdf" accept="application/pdf" required multiple>
+              <input type="file" name="acordao_pdf" id="acordao_pdf" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required multiple>
               <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
                 stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -95,7 +95,7 @@
                 <line x1="12" y1="18" x2="12" y2="12" />
                 <polyline points="9 15 12 12 15 15" />
               </svg>
-              <div class="upload-label">PDFs do Acórdão (até 10)</div>
+              <div class="upload-label">Documentos do Acórdão (até 10, .pdf/.docx)</div>
               <div class="upload-hint">Clique ou arraste os arquivos</div>
               <div class="upload-filename" id="filenameAcordao"></div>
             </div>

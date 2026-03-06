@@ -11,6 +11,7 @@ from src.etapa3 import (
     Etapa3Error,
     _decidir_admissibilidade_deterministica,
     _extrair_decisao,
+    _normalizar_aspas,
     _resultado_etapa3_from_json,
     _validar_cruzada_dispositivos,
     _validar_cruzada_temas,
@@ -91,6 +92,20 @@ class TestValidacaoEstrutura:
     def test_detects_inadmito(self) -> None:
         assert _extrair_decisao(MINUTA_COMPLETA) == Decisao.INADMITIDO
 
+    def test_detects_inadmito_with_line_break_between_in_and_admito(self) -> None:
+        minuta = "Ante o exposto, IN\nADMITO o recurso especial."
+        assert _extrair_decisao(minuta) == Decisao.INADMITIDO
+
+    @pytest.mark.parametrize(
+        "texto",
+        [
+            "Ante o exposto, NÃO SE CONHECE o recurso.",
+            "Diante disso, não conhece o recurso especial.",
+        ],
+    )
+    def test_detects_inadmito_synonyms(self, texto: str) -> None:
+        assert _extrair_decisao(texto) == Decisao.INADMITIDO
+
 
 # --- 5.5.2: Divergence Etapa 1 x Seção I ---
 
@@ -138,6 +153,32 @@ class TestTranscricaoLiteral:
         acordao = "Não restou demonstrada a ocorrência do dano alegado pelo recorrente."
         alertas = _validar_transcricoes(MINUTA_COMPLETA, acordao)
         assert len(alertas) == 0
+
+    @pytest.mark.parametrize(
+        ("abertura", "fechamento"),
+        [
+            ("“", "”"),
+            ("‘", "’"),
+            ("«", "»"),
+            ("'", "'"),
+        ],
+    )
+    def test_valid_transcription_with_quote_variants(
+        self,
+        abertura: str,
+        fechamento: str,
+    ) -> None:
+        trecho = "Não restou demonstrada a ocorrência do dano alegado pelo recorrente."
+        minuta = (
+            "Seção II – Análise Temática\n"
+            f"{abertura}{trecho}{fechamento}\n"
+        )
+        alertas = _validar_transcricoes(minuta, trecho)
+        assert len(alertas) == 0
+
+    def test_quote_normalization_maps_variants_to_double_quote(self) -> None:
+        texto = "“A” ‘B’ «C» 'D' `E` ´F´"
+        assert _normalizar_aspas(texto) == '"A" "B" "C" "D" "E" "F"'
 
     def test_missing_transcription(self) -> None:
         alertas = _validar_transcricoes(MINUTA_COMPLETA, "Texto completamente diferente.")
@@ -428,6 +469,7 @@ class TestEtapa3StructuredJson:
 
     def test_executar_etapa3_structured_failure_fallback(self, monkeypatch) -> None:
         calls = {"json": 0}
+        monkeypatch.setattr("src.etapa3.ENABLE_FAIL_CLOSED", True)
 
         def _fail_json(**kwargs):
             calls["json"] += 1
@@ -452,6 +494,140 @@ class TestEtapa3StructuredJson:
         )
         assert calls["json"] == 2
         assert resultado.decisao == Decisao.INADMITIDO
+        assert resultado.tentativa_estruturada_sucesso == 0
+        assert resultado.estrategia_retry_sucesso == "fallback_legado"
+
+    def test_executar_etapa3_retry2_reduces_context_and_adds_conciseness(self, monkeypatch) -> None:
+        monkeypatch.setattr("src.etapa3.ENABLE_FAIL_CLOSED", True)
+        monkeypatch.setattr("src.etapa3._verificar_contexto", lambda texto: texto)
+
+        captured_structured_user_texts: list[str] = []
+
+        def _fake_build_messages(**kwargs):
+            if kwargs.get("developer_override"):
+                captured_structured_user_texts.append(kwargs["user_text"])
+            return [{"role": "user", "content": kwargs["user_text"]}]
+
+        monkeypatch.setattr("src.etapa3.build_messages", _fake_build_messages)
+
+        payload = {
+            "minuta_completa": MINUTA_COMPLETA,
+            "decisao": "INADMITIDO",
+            "fundamentos_decisao": ["Óbice sumular"],
+            "itens_evidencia_usados": ["Tema 1/obices_sumulas: Súmula 7 (p.1)"],
+        }
+        calls = {"json": 0}
+
+        def _json_retry(**kwargs):
+            calls["json"] += 1
+            if calls["json"] == 1:
+                raise RuntimeError("erro na tentativa 1")
+            return payload
+
+        monkeypatch.setattr("src.etapa3.chamar_llm_json", _json_retry)
+        monkeypatch.setattr(
+            "src.etapa3.chamar_llm",
+            lambda **kwargs: (_ for _ in ()).throw(AssertionError("fallback legado não deve ser chamado")),
+        )
+
+        r1 = ResultadoEtapa1(
+            numero_processo="123",
+            recorrente="EMPRESA ABC LTDA",
+            permissivo_constitucional="art. 105, III, a, CF",
+            dispositivos_violados=["art. 927 do CC"],
+        )
+        r2 = ResultadoEtapa2(
+            temas=[
+                TemaEtapa2(
+                    materia_controvertida="Responsabilidade civil",
+                    conclusao_fundamentos="Incide Súmula 7 no caso concreto.",
+                    obices_sumulas=["Súmula 7"],
+                )
+            ]
+        )
+        texto_acordao = "A" * 200
+
+        resultado = executar_etapa3(
+            resultado_etapa1=r1,
+            resultado_etapa2=r2,
+            texto_acordao=texto_acordao,
+            prompt_sistema="prompt",
+            modelo_override="gpt-4o",
+        )
+
+        assert calls["json"] == 2
+        assert len(captured_structured_user_texts) == 2
+        marker = "--- TEXTO DO ACÓRDÃO (para transcrição) ---\n"
+        ctx_t1 = captured_structured_user_texts[0].split(marker, 1)[1]
+        ctx_t2 = captured_structured_user_texts[1].split(marker, 1)[1]
+        assert len(ctx_t1) == 200
+        assert len(ctx_t2) == 150
+        assert "Seja conciso. Minuta máxima de 800 palavras." in captured_structured_user_texts[1]
+        assert resultado.tentativa_estruturada_sucesso == 2
+        assert resultado.estrategia_retry_sucesso == "contexto_reduzido_75"
+
+    def test_executar_etapa3_retry3_sem_acordao_when_fail_open(self, monkeypatch) -> None:
+        monkeypatch.setattr("src.etapa3.ENABLE_FAIL_CLOSED", False)
+        monkeypatch.setattr("src.etapa3._verificar_contexto", lambda texto: texto)
+
+        captured_structured_user_texts: list[str] = []
+
+        def _fake_build_messages(**kwargs):
+            if kwargs.get("developer_override"):
+                captured_structured_user_texts.append(kwargs["user_text"])
+            return [{"role": "user", "content": kwargs["user_text"]}]
+
+        monkeypatch.setattr("src.etapa3.build_messages", _fake_build_messages)
+
+        payload = {
+            "minuta_completa": MINUTA_COMPLETA,
+            "decisao": "INADMITIDO",
+            "fundamentos_decisao": ["Óbice sumular"],
+            "itens_evidencia_usados": ["Tema 1/obices_sumulas: Súmula 7 (p.1)"],
+        }
+        calls = {"json": 0}
+
+        def _json_retry(**kwargs):
+            calls["json"] += 1
+            if calls["json"] < 3:
+                raise RuntimeError("erro nas tentativas iniciais")
+            return payload
+
+        monkeypatch.setattr("src.etapa3.chamar_llm_json", _json_retry)
+        monkeypatch.setattr(
+            "src.etapa3.chamar_llm",
+            lambda **kwargs: (_ for _ in ()).throw(AssertionError("fallback legado não deve ser chamado")),
+        )
+
+        r1 = ResultadoEtapa1(
+            numero_processo="123",
+            recorrente="EMPRESA ABC LTDA",
+            permissivo_constitucional="art. 105, III, a, CF",
+            dispositivos_violados=["art. 927 do CC"],
+        )
+        r2 = ResultadoEtapa2(
+            temas=[
+                TemaEtapa2(
+                    materia_controvertida="Responsabilidade civil",
+                    conclusao_fundamentos="Incide Súmula 7 no caso concreto.",
+                    obices_sumulas=["Súmula 7"],
+                )
+            ]
+        )
+
+        resultado = executar_etapa3(
+            resultado_etapa1=r1,
+            resultado_etapa2=r2,
+            texto_acordao="B" * 200,
+            prompt_sistema="prompt",
+            modelo_override="gpt-4o",
+        )
+
+        assert calls["json"] == 3
+        assert len(captured_structured_user_texts) == 3
+        assert "--- TEXTO DO ACÓRDÃO (para transcrição) ---" not in captured_structured_user_texts[2]
+        assert resultado.tentativa_estruturada_sucesso == 3
+        assert resultado.estrategia_retry_sucesso == "sem_texto_acordao"
 
     def test_executar_etapa3_decisao_deterministica_sobrepoe_minuta(self, monkeypatch) -> None:
         payload = {"minuta_completa": MINUTA_COMPLETA, "decisao": "INADMITIDO"}

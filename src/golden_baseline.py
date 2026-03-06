@@ -175,6 +175,11 @@ def _evaluate_case(case: dict[str, Any], output_dir: Path) -> dict[str, Any]:
     decisao_observada = final_result.decisao.value if final_result.decisao else ""
     decisao_esperada = str(expected.get("decisao", ""))
     e3_decisao_ok = int(decisao_observada == decisao_esperada)
+    e3_inconclusivo_rate = float("INCONCLUS" in decisao_observada.upper())
+    e3_inconclusivo_unexpected = float(
+        ("INCONCLUS" in decisao_observada.upper())
+        and ("INCONCLUS" not in decisao_esperada.upper())
+    )
 
     motivo_esperado = str(expected.get("motivo_bloqueio_codigo", ""))
     motivo_observado = str(pipeline.metricas.get("motivo_bloqueio_codigo", ""))
@@ -216,6 +221,8 @@ def _evaluate_case(case: dict[str, Any], output_dir: Path) -> dict[str, Any]:
             "etapa2_obice_accuracy": float(e2_obice_ok),
             "etapa2_proxy_f1": float(e2_proxy_f1),
             "etapa3_decisao_accuracy": float(e3_decisao_ok),
+            "etapa3_inconclusivo_rate": e3_inconclusivo_rate,
+            "etapa3_inconclusivo_unexpected_rate": e3_inconclusivo_unexpected,
             "etapa3_motivo_bloqueio_accuracy": float(e3_motivo_ok),
             "confianca_global_bounds_accuracy": float(conf_ok),
             "critical_evidence_failures": float(critical_evidence_failures),
@@ -226,6 +233,7 @@ def _evaluate_case(case: dict[str, Any], output_dir: Path) -> dict[str, Any]:
             "motivo_bloqueio_codigo": motivo_observado,
             "temas_count": observed_temas,
             "confianca_global": conf,
+            "especie_recurso": etapa1.especie_recurso if etapa1 else "",
             "critical_evidence_failures_detail": falhas_criticas_evidencia,
         },
     }
@@ -241,6 +249,8 @@ def _build_summary(cases: list[dict[str, Any]]) -> dict[str, Any]:
         "etapa2_obice_accuracy",
         "etapa2_proxy_f1",
         "etapa3_decisao_accuracy",
+        "etapa3_inconclusivo_rate",
+        "etapa3_inconclusivo_unexpected_rate",
         "etapa3_motivo_bloqueio_accuracy",
         "confianca_global_bounds_accuracy",
         "critical_evidence_failures_zero",
@@ -280,6 +290,11 @@ def _to_markdown(payload: dict[str, Any]) -> str:
         f"- Etapa 2 óbice esperado (acurácia): {metrics['etapa2_obice_accuracy']:.4f}",
         f"- Etapa 2 proxy F1: {metrics['etapa2_proxy_f1']:.4f}",
         f"- Etapa 3 decisão (acurácia): {metrics['etapa3_decisao_accuracy']:.4f}",
+        f"- Etapa 3 taxa de INCONCLUSIVO (bruta): {metrics['etapa3_inconclusivo_rate']:.4f}",
+        (
+            "- Etapa 3 taxa de INCONCLUSIVO não esperado "
+            f"(proxy de erro de classificação): {metrics['etapa3_inconclusivo_unexpected_rate']:.4f}"
+        ),
         f"- Etapa 3 motivo de bloqueio (acurácia): {metrics['etapa3_motivo_bloqueio_accuracy']:.4f}",
         f"- Confiança global dentro do intervalo esperado: {metrics['confianca_global_bounds_accuracy']:.4f}",
         f"- Casos sem falhas críticas de evidência: {metrics['critical_evidence_failures_zero']:.4f}",
@@ -300,6 +315,8 @@ def _to_markdown(payload: dict[str, Any]) -> str:
             f"e2_obice={cm['etapa2_obice_accuracy']:.3f}, "
             f"e2_f1={cm['etapa2_proxy_f1']:.3f}, "
             f"e3_dec={cm['etapa3_decisao_accuracy']:.3f}, "
+            f"e3_inc={cm['etapa3_inconclusivo_rate']:.3f}, "
+            f"e3_inc_unexp={cm['etapa3_inconclusivo_unexpected_rate']:.3f}, "
             f"e3_motivo={cm['etapa3_motivo_bloqueio_accuracy']:.3f}, "
             f"conf={cm['confianca_global_bounds_accuracy']:.3f}, "
             f"ev_fail={cm['critical_evidence_failures']:.0f}"

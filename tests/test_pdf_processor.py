@@ -1,13 +1,18 @@
 """Tests for PDF text extraction (Sprint 1.4)."""
 
+import time
+
 import pytest
 
 from src.pdf_processor import (
     ExtractionResult,
     PDFCorruptedError,
     PDFExtractionError,
+    _OCRPageData,
     _deve_tentar_ocr,
+    _executar_ocr_paralelo,
     _limpar_texto,
+    _paginas_que_precisam_ocr,
     _parse_osd_rotation,
     _preprocess_image_for_ocr,
     extrair_multiplos_pdfs,
@@ -47,6 +52,7 @@ class TestExtrairTexto:
         assert 0.0 <= resultado.quality_score <= 1.0
         assert 0.0 <= resultado.noise_ratio <= 1.0
         assert 0.0 <= resultado.ocr_confidence <= 1.0
+        assert resultado.ocr_processing_time_ms >= 0
         assert len(resultado.raw_text_by_page) == resultado.num_paginas
         assert len(resultado.clean_text_by_page) == resultado.num_paginas
         assert len(resultado.raw_page_hashes) == resultado.num_paginas
@@ -222,6 +228,167 @@ class TestPDFErrors:
     def test_raises_on_corrupted_pdf(self, corrupted_pdf_path: str) -> None:
         with pytest.raises((PDFCorruptedError, PDFExtractionError)):
             extrair_texto(corrupted_pdf_path)
+
+
+class TestOCRParalelo:
+    """Testes da paralelização de OCR por página (PDF-010)."""
+
+    def test_parallel_worker_results_can_be_reordered_by_page_index(self) -> None:
+        def fake_worker(_filepath: str, page_index: int) -> _OCRPageData:
+            delays = {0: 0.04, 1: 0.01, 2: 0.02}
+            time.sleep(delays[page_index])
+            return _OCRPageData(
+                page_index=page_index,
+                text=f"pagina-{page_index + 1}",
+                confidence=0.9,
+            )
+
+        results = _executar_ocr_paralelo(
+            "dummy.pdf",
+            [0, 1, 2],
+            worker_fn=fake_worker,
+            max_workers=3,
+        )
+        ordered_text = [results[i].text for i in [0, 1, 2]]
+        assert ordered_text == ["pagina-1", "pagina-2", "pagina-3"]
+
+    def test_parallel_worker_failure_returns_empty_page_result(self) -> None:
+        def fake_worker(_filepath: str, page_index: int) -> _OCRPageData:
+            if page_index == 1:
+                raise RuntimeError("OCR timeout")
+            return _OCRPageData(
+                page_index=page_index,
+                text=f"pagina-{page_index + 1}",
+                confidence=0.8,
+            )
+
+        results = _executar_ocr_paralelo(
+            "dummy.pdf",
+            [0, 1, 2],
+            worker_fn=fake_worker,
+            max_workers=3,
+        )
+        assert results[1].text == ""
+        assert results[1].confidence == 0.0
+
+    @pytest.mark.slow
+    def test_benchmark_parallel_ocr_50_pages_with_4_and_8_workers(self) -> None:
+        page_indices = list(range(50))
+
+        def fake_worker(_filepath: str, page_index: int) -> _OCRPageData:
+            time.sleep(0.03)
+            return _OCRPageData(
+                page_index=page_index,
+                text=f"txt-{page_index}",
+                confidence=0.75,
+            )
+
+        start_1 = time.perf_counter()
+        _executar_ocr_paralelo(
+            "pdf_50_paginas_teste.pdf",
+            page_indices,
+            worker_fn=fake_worker,
+            max_workers=1,
+        )
+        dur_1 = time.perf_counter() - start_1
+
+        start_4 = time.perf_counter()
+        _executar_ocr_paralelo(
+            "pdf_50_paginas_teste.pdf",
+            page_indices,
+            worker_fn=fake_worker,
+            max_workers=4,
+        )
+        dur_4 = time.perf_counter() - start_4
+
+        start_8 = time.perf_counter()
+        _executar_ocr_paralelo(
+            "pdf_50_paginas_teste.pdf",
+            page_indices,
+            worker_fn=fake_worker,
+            max_workers=8,
+        )
+        dur_8 = time.perf_counter() - start_8
+
+        gain_4 = (dur_1 - dur_4) / max(dur_1, 1e-6)
+        gain_8 = (dur_1 - dur_8) / max(dur_1, 1e-6)
+
+        assert gain_4 > 0.6
+        assert gain_8 > 0.6
+        assert dur_8 < dur_4
+
+
+class TestOCRSeletivo:
+    """Testes do OCR seletivo por página (PDF-011)."""
+
+    def test_identifies_only_low_quality_or_noisy_pages(self) -> None:
+        resultado = ExtractionResult(
+            texto="",
+            num_paginas=3,
+            num_caracteres=0,
+            engine_usada="pymupdf",
+            raw_text_by_page=[
+                "Texto jurídico extenso e claro com fundamentos e artigos aplicáveis.",
+                "",
+                "Página 3 de 10\nDocumento assinado digitalmente",
+            ],
+        )
+
+        paginas = _paginas_que_precisam_ocr(resultado)
+        assert paginas == [2, 3]
+
+    def test_selective_ocr_merges_only_target_pages_and_tracks_pages_with_ocr(
+        self,
+        monkeypatch,
+        sample_recurso_path: str,
+    ) -> None:
+        monkeypatch.setattr("src.pdf_processor.ENABLE_OCR_FALLBACK", True)
+        monkeypatch.setattr("src.pdf_processor.MIN_TEXT_THRESHOLD", 10)
+        monkeypatch.setattr("src.pdf_processor.OCR_TRIGGER_MIN_CHARS_PER_PAGE", 20)
+        monkeypatch.setattr("src.pdf_processor._deve_tentar_ocr", lambda _resultado: False)
+
+        native_pages = [
+            "Fundamentação suficiente da página 1 com conteúdo textual útil.",
+            "",
+            "Documento assinado digitalmente\nPágina 3 de 3",
+        ]
+        native_text = "\n".join(native_pages)
+        monkeypatch.setattr(
+            "src.pdf_processor._extrair_com_pymupdf",
+            lambda _path: ExtractionResult(
+                texto=native_text,
+                num_paginas=3,
+                num_caracteres=len(native_text),
+                engine_usada="pymupdf",
+                raw_text_by_page=native_pages.copy(),
+            ),
+        )
+
+        def fake_ocr(_path: str, pages_only: list[int] | None = None) -> ExtractionResult:
+            assert pages_only == [2, 3]
+            return ExtractionResult(
+                texto="\nOCR página 2\nOCR página 3",
+                num_paginas=3,
+                num_caracteres=24,
+                engine_usada="ocr",
+                raw_text_by_page=["", "OCR página 2", "OCR página 3"],
+                pages_with_ocr=[2, 3],
+                ocr_aplicado=True,
+                ocr_fallback_successful=True,
+                ocr_confidence_by_page=[0.0, 0.81, 0.79],
+                ocr_processing_time_ms=120,
+            )
+
+        monkeypatch.setattr("src.pdf_processor._extrair_com_ocr", fake_ocr)
+
+        resultado = extrair_texto(sample_recurso_path)
+
+        assert resultado.pages_with_ocr == [2, 3]
+        assert resultado.raw_text_by_page[0].startswith("Fundamentação suficiente")
+        assert resultado.raw_text_by_page[1] == "OCR página 2"
+        assert resultado.raw_text_by_page[2] == "OCR página 3"
+        assert resultado.engine_usada.endswith("+ocr")
+        assert resultado.ocr_processing_time_ms >= 120
 
 
 class TestLimpezaTexto:

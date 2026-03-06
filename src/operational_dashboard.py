@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import logging
 import os
-from datetime import datetime
+from collections import Counter, defaultdict
+from datetime import datetime, timedelta
 from pathlib import Path
 from statistics import mean
 from typing import Any
@@ -22,6 +24,7 @@ ESSENTIAL_FIELDS_ETAPA2: tuple[str, ...] = (
     "obices_sumulas",
     "trecho_transcricao",
 )
+DECISAO_CATEGORIES: tuple[str, ...] = ("ADMITIDO", "INADMITIDO", "INCONCLUSIVO")
 
 
 def _listar_snapshots(snapshot_dir: Path) -> list[Path]:
@@ -51,10 +54,93 @@ def _calc_duration_seconds(metadata: dict[str, Any]) -> float:
 def _extrair_decisao(snapshot: dict[str, Any]) -> str:
     """Extract stage 3 decision from snapshot."""
     stages = snapshot.get("stages", {})
+    if not isinstance(stages, dict):
+        return ""
     etapa3 = stages.get("etapa3", {})
+    if not isinstance(etapa3, dict):
+        return ""
     resultado = etapa3.get("resultado") or {}
+    if not isinstance(resultado, dict):
+        return ""
     decisao = str(resultado.get("decisao") or "").strip().upper()
     return decisao
+
+
+def _snapshot_reference_datetime(snapshot: dict[str, Any]) -> datetime | None:
+    """Resolve reference datetime for period filtering and weekly aggregation."""
+    metadata = snapshot.get("metadata", {})
+    if not isinstance(metadata, dict):
+        return None
+    return _parse_iso_datetime(metadata.get("fim")) or _parse_iso_datetime(metadata.get("inicio"))
+
+
+def _collect_validation_alerts(snapshot: dict[str, Any]) -> list[str]:
+    """Collect validation alerts from snapshot payload with best-effort parsing."""
+    alerts: list[str] = []
+
+    root_alerts = snapshot.get("alertas_validacao")
+    if isinstance(root_alerts, list):
+        alerts.extend(str(a).strip() for a in root_alerts if str(a).strip())
+
+    validacoes = snapshot.get("validacoes")
+    if isinstance(validacoes, dict):
+        for erros in validacoes.values():
+            if isinstance(erros, list):
+                alerts.extend(str(a).strip() for a in erros if str(a).strip())
+
+    metadata = snapshot.get("metadata", {})
+    if isinstance(metadata, dict):
+        metadata_alerts = metadata.get("alertas")
+        if isinstance(metadata_alerts, list):
+            alerts.extend(str(a).strip() for a in metadata_alerts if str(a).strip())
+
+    stages = snapshot.get("stages", {})
+    if isinstance(stages, dict):
+        for stage_payload in stages.values():
+            if not isinstance(stage_payload, dict):
+                continue
+            erros = stage_payload.get("validacao_erros")
+            if isinstance(erros, list):
+                alerts.extend(str(a).strip() for a in erros if str(a).strip())
+
+    deduped = list(dict.fromkeys(alerts))
+    return deduped
+
+
+def _categorize_alert(alert: str) -> str:
+    """Normalize alert messages to stable categories for top-k reporting."""
+    text = " ".join(str(alert or "").strip().lower().split())
+    if not text:
+        return "outros"
+    if ("seção" in text or "secao" in text) and (
+        "não encontrada" in text or "nao encontrada" in text or "ausente" in text
+    ):
+        return "seção ausente"
+    if "súmula" in text or "sumula" in text:
+        if "não" in text or "nao" in text or "ausente" in text or "sem" in text:
+            return "súmula não encontrada"
+        return "súmula"
+    if "evidência" in text or "evidencia" in text:
+        return "evidência"
+    if "inconclus" in text:
+        return "inconclusivo"
+    if "etapa 1" in text:
+        return "etapa 1"
+    if "etapa 2" in text:
+        return "etapa 2"
+    if "etapa 3" in text:
+        return "etapa 3"
+    if ":" in text:
+        return text.split(":", 1)[0].strip()
+    return text[:80]
+
+
+def _resolve_week_key(reference_dt: datetime | None) -> str:
+    """Return ISO week key used in weekly decision distribution."""
+    if reference_dt is None:
+        return "sem_data"
+    iso_year, iso_week, _ = reference_dt.isocalendar()
+    return f"{iso_year}-W{iso_week:02d}"
 
 
 def _resolve_build_info() -> dict[str, str]:
@@ -116,6 +202,8 @@ def _calc_evidence_coverage(snapshot: dict[str, Any]) -> tuple[int, int]:
     total = 0
 
     stages = snapshot.get("stages", {})
+    if not isinstance(stages, dict):
+        return covered, total
     etapa1_result = (stages.get("etapa1", {}) or {}).get("resultado") or {}
     if isinstance(etapa1_result, dict):
         evidencias = etapa1_result.get("evidencias_campos")
@@ -145,7 +233,41 @@ def _calc_evidence_coverage(snapshot: dict[str, Any]) -> tuple[int, int]:
     return covered, total
 
 
-def _build_dashboard_payload(snapshots: list[dict[str, Any]]) -> dict[str, Any]:
+def _load_snapshot_payloads(snapshot_dir: Path) -> tuple[list[Path], list[dict[str, Any]]]:
+    """Load snapshot payloads from directory, ignoring invalid files."""
+    snapshot_paths = _listar_snapshots(snapshot_dir)
+    snapshots: list[dict[str, Any]] = []
+    for path in snapshot_paths:
+        try:
+            snapshots.append(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError):
+            logger.warning("Snapshot inválido ignorado no dashboard: %s", path)
+    return snapshot_paths, snapshots
+
+
+def _filter_snapshots_by_period(
+    snapshots: list[dict[str, Any]],
+    *,
+    period_days: int | None,
+) -> list[dict[str, Any]]:
+    """Filter snapshots by lookback period (in days) using snapshot metadata timestamps."""
+    if period_days is None or period_days <= 0:
+        return snapshots
+
+    cutoff = datetime.now() - timedelta(days=period_days)
+    filtered: list[dict[str, Any]] = []
+    for snapshot in snapshots:
+        reference_dt = _snapshot_reference_datetime(snapshot)
+        if reference_dt is not None and reference_dt >= cutoff:
+            filtered.append(snapshot)
+    return filtered
+
+
+def _build_dashboard_payload(
+    snapshots: list[dict[str, Any]],
+    *,
+    period_days: int | None = None,
+) -> dict[str, Any]:
     """Aggregate operational metrics from snapshot payloads."""
     total_exec = len(snapshots)
 
@@ -159,9 +281,14 @@ def _build_dashboard_payload(snapshots: list[dict[str, Any]]) -> dict[str, Any]:
     llm_latencias: list[float] = []
     evidence_covered_fields = 0
     evidence_total_fields = 0
+    decisions_by_week: dict[str, Counter[str]] = defaultdict(Counter)
+    minutas_com_alerta = 0
+    alert_categories_counter: Counter[str] = Counter()
 
     for snapshot in snapshots:
         metadata = snapshot.get("metadata", {})
+        if not isinstance(metadata, dict):
+            metadata = {}
         prompt_tokens = int(metadata.get("prompt_tokens", 0) or 0)
         completion_tokens = int(metadata.get("completion_tokens", 0) or 0)
         total_tokens = int(metadata.get("total_tokens", 0) or 0)
@@ -175,14 +302,32 @@ def _build_dashboard_payload(snapshots: list[dict[str, Any]]) -> dict[str, Any]:
         decisao = _extrair_decisao(snapshot)
         if decisao:
             decisions.append(decisao)
+            if decisao in DECISAO_CATEGORIES:
+                week_key = _resolve_week_key(_snapshot_reference_datetime(snapshot))
+                decisions_by_week[week_key][decisao] += 1
 
         stages = snapshot.get("stages", {})
+        if not isinstance(stages, dict):
+            stages = {}
         for etapa in ("etapa1", "etapa2", "etapa3"):
-            erros = stages.get(etapa, {}).get("validacao_erros", [])
+            etapa_payload = stages.get(etapa, {})
+            if not isinstance(etapa_payload, dict):
+                continue
+            erros = etapa_payload.get("validacao_erros", [])
             if isinstance(erros, list) and erros:
                 stage_errors[etapa] += 1
 
+        alertas = _collect_validation_alerts(snapshot)
+        if alertas:
+            minutas_com_alerta += 1
+            for alerta in alertas:
+                categoria_alerta = _categorize_alert(alerta)
+                if categoria_alerta:
+                    alert_categories_counter[categoria_alerta] += 1
+
         llm_stats = metadata.get("llm_stats", {})
+        if not isinstance(llm_stats, dict):
+            llm_stats = {}
         llm_total_calls += int(llm_stats.get("total_calls", 0) or 0)
         llm_total_truncadas += int(llm_stats.get("calls_truncadas", 0) or 0)
         llm_latencias.append(float(llm_stats.get("latencia_media_ms", 0.0) or 0.0))
@@ -193,10 +338,29 @@ def _build_dashboard_payload(snapshots: list[dict[str, Any]]) -> dict[str, Any]:
 
     inconclusivos = sum(1 for d in decisions if d == "INCONCLUSIVO")
     decisoes_conclusivas = len(decisions)
+    top_5_alertas = [
+        {"tipo": tipo, "quantidade": quantidade}
+        for tipo, quantidade in sorted(
+            alert_categories_counter.items(),
+            key=lambda item: (-item[1], item[0]),
+        )[:5]
+    ]
+    distribuicao_decisao_por_semana = []
+    for semana in sorted(decisions_by_week):
+        contagem = decisions_by_week[semana]
+        distribuicao_decisao_por_semana.append(
+            {
+                "semana": semana,
+                "ADMITIDO": int(contagem.get("ADMITIDO", 0)),
+                "INADMITIDO": int(contagem.get("INADMITIDO", 0)),
+                "INCONCLUSIVO": int(contagem.get("INCONCLUSIVO", 0)),
+            }
+        )
 
     dashboard = {
         "gerado_em": datetime.now().isoformat(),
         "build": _resolve_build_info(),
+        "periodo_dias": period_days,
         "execucoes": {
             "total": total_exec,
             "com_decisao": decisoes_conclusivas,
@@ -234,12 +398,19 @@ def _build_dashboard_payload(snapshots: list[dict[str, Any]]) -> dict[str, Any]:
                     else 0.0
                 ),
             },
+            "alertas_validacao": {
+                "minutas_com_alerta": minutas_com_alerta,
+                "minutas_avaliadas": total_exec,
+                "taxa": round((minutas_com_alerta / total_exec), 3) if total_exec else 0.0,
+                "top_5_tipos": top_5_alertas,
+            },
         },
         "llm": {
             "calls_total": llm_total_calls,
             "calls_truncadas_total": llm_total_truncadas,
             "latencia_media_ms": round(mean(llm_latencias), 2) if llm_latencias else 0.0,
         },
+        "distribuicao_decisao_por_semana": distribuicao_decisao_por_semana,
     }
     return dashboard
 
@@ -254,6 +425,8 @@ def _to_markdown(payload: dict[str, Any]) -> str:
     qualidade = payload["qualidade"]
     llm = payload["llm"]
     erro_etapa = qualidade["erro_por_etapa"]
+    alertas_validacao = qualidade["alertas_validacao"]
+    distribuicao = payload.get("distribuicao_decisao_por_semana", [])
 
     lines = [
         "# Dashboard Operacional",
@@ -297,6 +470,11 @@ def _to_markdown(payload: dict[str, Any]) -> str:
             f"({qualidade['cobertura_evidencia']['campos_cobertos']}/"
             f"{qualidade['cobertura_evidencia']['campos_avaliados']})"
         ),
+        (
+            "- Minutas com alertas de validação: "
+            f"{alertas_validacao['taxa']:.3f} "
+            f"({alertas_validacao['minutas_com_alerta']}/{alertas_validacao['minutas_avaliadas']})"
+        ),
         "",
         "## LLM",
         "",
@@ -304,8 +482,108 @@ def _to_markdown(payload: dict[str, Any]) -> str:
         f"- Calls truncadas: {llm['calls_truncadas_total']}",
         f"- Latência média: {llm['latencia_media_ms']:.2f} ms",
         "",
+        "## Decisão por Semana",
+        "",
     ]
+    if distribuicao:
+        for item in distribuicao:
+            lines.append(
+                "- "
+                + f"{item['semana']}: "
+                + f"ADMITIDO={item['ADMITIDO']}, "
+                + f"INADMITIDO={item['INADMITIDO']}, "
+                + f"INCONCLUSIVO={item['INCONCLUSIVO']}"
+            )
+    else:
+        lines.append("- Sem decisões no período.")
+
+    lines.extend(
+        [
+            "",
+            "## Top Alertas de Validação",
+            "",
+        ]
+    )
+    if alertas_validacao["top_5_tipos"]:
+        for item in alertas_validacao["top_5_tipos"]:
+            lines.append(f"- {item['tipo']}: {item['quantidade']}")
+    else:
+        lines.append("- Sem alertas de validação no período.")
+    lines.append("")
     return "\n".join(lines)
+
+
+def _export_dashboard_csv(payload: dict[str, Any], destination: Path) -> None:
+    """Export selected dashboard metrics as CSV for external analysis."""
+    qualidade = payload.get("qualidade", {})
+    alertas = qualidade.get("alertas_validacao", {})
+    distribuicao = payload.get("distribuicao_decisao_por_semana", [])
+    top_alertas = alertas.get("top_5_tipos", [])
+
+    with destination.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(
+            stream,
+            fieldnames=("categoria", "metrica", "semana", "valor"),
+        )
+        writer.writeheader()
+        writer.writerow(
+            {
+                "categoria": "alertas_validacao",
+                "metrica": "minutas_com_alerta",
+                "semana": "",
+                "valor": int(alertas.get("minutas_com_alerta", 0) or 0),
+            }
+        )
+        writer.writerow(
+            {
+                "categoria": "alertas_validacao",
+                "metrica": "minutas_avaliadas",
+                "semana": "",
+                "valor": int(alertas.get("minutas_avaliadas", 0) or 0),
+            }
+        )
+        writer.writerow(
+            {
+                "categoria": "alertas_validacao",
+                "metrica": "taxa",
+                "semana": "",
+                "valor": float(alertas.get("taxa", 0.0) or 0.0),
+            }
+        )
+
+        for weekly_item in distribuicao:
+            semana = str(weekly_item.get("semana") or "")
+            for decisao in DECISAO_CATEGORIES:
+                writer.writerow(
+                    {
+                        "categoria": "distribuicao_decisao_por_semana",
+                        "metrica": decisao,
+                        "semana": semana,
+                        "valor": int(weekly_item.get(decisao, 0) or 0),
+                    }
+                )
+
+        for item in top_alertas:
+            writer.writerow(
+                {
+                    "categoria": "top_alertas_validacao",
+                    "metrica": str(item.get("tipo") or "outros"),
+                    "semana": "",
+                    "valor": int(item.get("quantidade", 0) or 0),
+                }
+            )
+
+
+def obter_metricas_operacionais(
+    *,
+    snapshot_dir: Path | None = None,
+    period_days: int | None = 30,
+) -> dict[str, Any]:
+    """Compute operational metrics payload, optionally filtered by lookback period."""
+    source_dir = snapshot_dir or OUTPUTS_DIR
+    _, snapshots = _load_snapshot_payloads(source_dir)
+    snapshots_filtered = _filter_snapshots_by_period(snapshots, period_days=period_days)
+    return _build_dashboard_payload(snapshots_filtered, period_days=period_days)
 
 
 def gerar_dashboard_operacional(
@@ -314,7 +592,7 @@ def gerar_dashboard_operacional(
     output_dir: Path | None = None,
 ) -> tuple[Path, Path, dict[str, Any]]:
     """
-    Generate operational dashboard (JSON + Markdown) from execution snapshots.
+    Generate operational dashboard (JSON + Markdown + CSV) from execution snapshots.
 
     Returns:
         Tuple (dashboard_json_path, dashboard_markdown_path, payload)
@@ -323,29 +601,25 @@ def gerar_dashboard_operacional(
     target_dir = output_dir or OUTPUTS_DIR
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    snapshot_paths = _listar_snapshots(source_dir)
-    snapshots: list[dict[str, Any]] = []
-    for path in snapshot_paths:
-        try:
-            snapshots.append(json.loads(path.read_text(encoding="utf-8")))
-        except (OSError, json.JSONDecodeError):
-            logger.warning("Snapshot inválido ignorado no dashboard: %s", path)
-
+    snapshot_paths, snapshots = _load_snapshot_payloads(source_dir)
     payload = _build_dashboard_payload(snapshots)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     dashboard_json = target_dir / f"dashboard_operacional_{timestamp}.json"
     dashboard_md = target_dir / f"dashboard_operacional_{timestamp}.md"
+    dashboard_csv = target_dir / f"dashboard_operacional_{timestamp}.csv"
 
     dashboard_json.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     dashboard_md.write_text(_to_markdown(payload), encoding="utf-8")
+    _export_dashboard_csv(payload, dashboard_csv)
 
     logger.info(
-        "📈 Dashboard operacional gerado: snapshots=%d json=%s md=%s",
+        "📈 Dashboard operacional gerado: snapshots=%d json=%s md=%s csv=%s",
         len(snapshot_paths),
         dashboard_json,
         dashboard_md,
+        dashboard_csv,
     )
     return dashboard_json, dashboard_md, payload

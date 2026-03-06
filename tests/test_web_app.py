@@ -27,6 +27,8 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(web_app, "OPENROUTER_API_KEY", "")
     monkeypatch.setattr(web_app, "ENABLE_WEB_DOWNLOAD_ACCESS_CONTROL", True)
     monkeypatch.setattr(web_app, "WEB_DOWNLOAD_TOKEN_TTL_SECONDS", 600)
+    monkeypatch.setattr(web_app, "WEB_AUTH_ENABLED", False)
+    monkeypatch.setattr(web_app, "UPLOAD_RATE_LIMIT_PER_MINUTE", 50)
     monkeypatch.setattr(web_app, "_DOWNLOAD_TOKENS", {})
 
     web_app.app.config.update(TESTING=True)
@@ -40,6 +42,61 @@ class TestWebAppRoutes:
         response = client.get("/healthz")
         assert response.status_code == 200
         assert response.get_json() == {"status": "ok"}
+
+    def test_metrics_returns_json_for_requested_period(
+        self,
+        client,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def _fake_metrics(*, snapshot_dir: Path, period_days: int) -> dict[str, Any]:
+            assert period_days == 7
+            assert snapshot_dir == web_app.OUTPUTS_DIR
+            return {
+                "gerado_em": "2026-03-06T12:00:00",
+                "periodo_dias": period_days,
+                "execucoes": {"total": 2, "com_decisao": 2},
+                "qualidade": {
+                    "alertas_validacao": {
+                        "minutas_com_alerta": 1,
+                        "minutas_avaliadas": 2,
+                        "taxa": 0.5,
+                        "top_5_tipos": [{"tipo": "seção ausente", "quantidade": 1}],
+                    }
+                },
+                "distribuicao_decisao_por_semana": [
+                    {"semana": "2026-W10", "ADMITIDO": 1, "INADMITIDO": 1, "INCONCLUSIVO": 0}
+                ],
+            }
+
+        monkeypatch.setattr(web_app, "obter_metricas_operacionais", _fake_metrics)
+
+        response = client.get("/metrics?days=7")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["periodo_dias"] == 7
+        assert data["execucoes"]["total"] == 2
+        assert data["qualidade"]["alertas_validacao"]["taxa"] == 0.5
+
+    def test_metrics_rejects_invalid_days_parameter(self, client) -> None:
+        response = client.get("/metrics?days=zero")
+        assert response.status_code == 400
+        assert "inválido" in (response.get_json() or {}).get("error", "")
+
+        response = client.get("/metrics?days=366")
+        assert response.status_code == 400
+        assert "intervalo permitido" in (response.get_json() or {}).get("error", "")
+
+    def test_metrics_requires_auth_when_enabled(self, client, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(web_app, "WEB_AUTH_ENABLED", True)
+        response = client.get("/metrics")
+        assert response.status_code == 401
+        assert response.get_json() == {"error": "Unauthorized"}
+
+    def test_security_headers_are_applied(self, client) -> None:
+        response = client.get("/healthz")
+        assert response.headers.get("X-Content-Type-Options") == "nosniff"
+        assert response.headers.get("X-Frame-Options") == "DENY"
+        assert "default-src 'self'" in (response.headers.get("Content-Security-Policy") or "")
 
     def test_index_returns_200(self, client) -> None:
         response = client.get("/")
@@ -69,6 +126,19 @@ class TestWebAppRoutes:
 
         assert response.status_code == 400
         assert b"limite" in response.data
+
+    def test_processar_rejects_unsupported_document_extension(self, client) -> None:
+        payload = b"dummy-content"
+        data = {
+            "formato": "md",
+            "modelo": "gpt-4o",
+            "recurso_pdf": (BytesIO(payload), "recurso.txt"),
+            "acordao_pdf": [(BytesIO(payload), "acordao_1.pdf")],
+        }
+        response = client.post("/processar", data=data, content_type="multipart/form-data")
+
+        assert response.status_code == 400
+        assert b"Formato inv" in response.data
 
     def test_processar_success_renders_result(self, client, monkeypatch: pytest.MonkeyPatch) -> None:
         class FakePipeline:
@@ -104,8 +174,20 @@ class TestWebAppRoutes:
         response = client.post("/processar", data=data, content_type="multipart/form-data")
 
         assert response.status_code == 200
-        assert b"ADMITIDO" in response.data
-        assert b"Texto da minuta final." in response.data
+        assert b"Processando" in response.data
+
+        # Wait for job to finish
+        import time
+        time.sleep(0.1)
+
+        # Get job id from internal dict to check status
+        job_id = list(web_app._JOBS.keys())[-1]
+        
+        # Check result via /resultado
+        res_resultado = client.get(f"/resultado/{job_id}")
+        assert res_resultado.status_code == 200
+        assert b"ADMITIDO" in res_resultado.data
+        assert b"Texto da minuta final." in res_resultado.data
 
     def test_processar_on_pipeline_error_returns_500(self, client, monkeypatch: pytest.MonkeyPatch) -> None:
         class FakePipelineError:
@@ -134,8 +216,19 @@ class TestWebAppRoutes:
         }
         response = client.post("/processar", data=data, content_type="multipart/form-data")
 
-        assert response.status_code == 500
-        assert b"API Key ausente ou inv" in response.data
+        assert response.status_code == 200
+        assert b"Processando" in response.data
+
+        # Wait for thread to finish
+        import time
+        time.sleep(0.1)
+
+        job_id = list(web_app._JOBS.keys())[-1]
+        
+        res_resultado = client.get(f"/resultado/{job_id}")
+        assert res_resultado.status_code == 200
+        assert b"API Key ausente ou inv" in res_resultado.data
+
         assert captured["error"] == "API_KEY invalid"
         assert captured["kwargs"]["processo_id"].startswith("web_")
         assert captured["kwargs"]["contexto"]["origem"] == "web"
@@ -157,3 +250,39 @@ class TestWebAppRoutes:
         # Token is one-time; second attempt must fail.
         response = client.get(download_url)
         assert response.status_code == 403
+
+    def test_auth_redirects_to_login_when_enabled(self, client, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(web_app, "WEB_AUTH_ENABLED", True)
+        response = client.get("/", follow_redirects=False)
+        assert response.status_code == 302
+        assert response.headers.get("Location", "").endswith("/login")
+
+    def test_login_flow_allows_access_when_auth_enabled(
+        self, client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(web_app, "WEB_AUTH_ENABLED", True)
+        monkeypatch.setattr("src.auth.WEB_AUTH_TOKEN", "segredo-teste")
+
+        fail = client.post("/login", data={"password": "errado"}, follow_redirects=False)
+        assert fail.status_code == 401
+        assert b"Token inv" in fail.data
+
+        ok = client.post("/login", data={"password": "segredo-teste"}, follow_redirects=False)
+        assert ok.status_code == 302
+        assert ok.headers.get("Location", "").endswith("/")
+        assert "assessor_auth=" in (ok.headers.get("Set-Cookie") or "")
+
+        page = client.get("/")
+        assert page.status_code == 200
+        assert b"Enviar Documentos" in page.data
+
+    def test_bearer_token_auth_works_for_protected_route(
+        self, client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(web_app, "WEB_AUTH_ENABLED", True)
+        token = web_app.generate_jwt_token()
+        response = client.get(
+            "/status/job-inexistente",
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+        )
+        assert response.status_code == 404

@@ -131,6 +131,8 @@ class ResultadoEtapa3(BaseModel):
     aviso_inconclusivo: bool = False
     motivo_bloqueio_codigo: str = ""
     motivo_bloqueio_descricao: str = ""
+    tentativa_estruturada_sucesso: int = 0
+    estrategia_retry_sucesso: str = ""
 
 
 # --- 1.3.6 EstadoPipeline ---
@@ -150,6 +152,7 @@ class MetadadosPipeline(BaseModel):
     prompt_version: str = ""
     prompt_hash_sha256: str = ""
     llm_stats: dict[str, Any] = Field(default_factory=dict)
+    etapa3_retry: dict[str, Any] = Field(default_factory=dict)
     modelos_utilizados: dict[str, str] = Field(default_factory=dict)
     confianca_por_etapa: dict[str, float] = Field(default_factory=dict)
     confianca_campos_etapa1: dict[str, float] = Field(default_factory=dict)

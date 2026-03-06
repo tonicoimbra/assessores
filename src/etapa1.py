@@ -164,7 +164,18 @@ def _parse_nome(texto: str, marcador: str) -> str:
 def _parse_especie_recurso(texto: str) -> str:
     """3.2.3 — Extract appeal type."""
     patterns = [
-        r"\[?(RECURSO\s+ESPECIAL(?:\s+C[IÍ]VEL)?|RECURSO\s+EXTRAORDIN[AÁ]RIO)\]?",
+        (
+            r"\[?("
+            r"RECURSO\s+ESPECIAL(?:\s+C[IÍ]VEL)?|"
+            r"RECURSO\s+EXTRAORDIN[AÁ]RIO|"
+            r"AGRAVO\s+EM\s+RECURSO\s+ESPECIAL|"
+            r"AGRAVO\s+REGIMENTAL|"
+            r"AGRAVO\s+INTERNO|"
+            r"EMBARGOS?\s+DE\s+DECLARA(?:[ÇC][ÃA]O)|"
+            r"RECURSO\s+DE\s+REVISTA|"
+            r"ARESP"
+            r")\]?"
+        ),
         r"Esp[ée]cie[:\s]+([^\n]+)",
     ]
     for p in patterns:

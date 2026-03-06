@@ -7,6 +7,7 @@ from src.minuta_selector import selecionar_minuta_referencia
 
 from src.config import (
     ENABLE_CHUNKING,
+    ENABLE_FAIL_CLOSED,
     MAX_TOKENS_ETAPA3,
     MAX_TOKENS_INTERMEDIATE,
     MAX_CONTEXT_TOKENS,
@@ -130,12 +131,18 @@ def _validar_secao_iii(minuta: str) -> list[str]:
 
 def _extrair_decisao(minuta: str) -> Decisao | None:
     """Extract the admissibility decision from the draft."""
-    inconclusivo = re.search(r"inconclusiv", minuta, re.IGNORECASE)
+    minuta_normalizada = re.sub(r"\s+", " ", minuta or "").strip()
+    inconclusivo = re.search(r"inconclusiv", minuta_normalizada, re.IGNORECASE)
     inadmito = re.search(
-        r"(?:INADMITO|não\s+admito|inadmito\s+o\s+recurso)", minuta, re.IGNORECASE
+        (
+            r"(?:\bINADMITO\b|\bIN\s+ADMITO\b|n[ãa]o\s+admito\b|inadmito\s+o\s+recurso\b|"
+            r"n[ãa]o\s+(?:se\s+)?conhece(?:\s+o\s+recurso)?)"
+        ),
+        minuta_normalizada,
+        re.IGNORECASE,
     )
     admito = re.search(
-        r"(?:(?<!IN)ADMITO|admito\s+o\s+recurso)", minuta, re.IGNORECASE
+        r"(?:\bADMITO\b|admito\s+o\s+recurso)", minuta_normalizada, re.IGNORECASE
     )
 
     if inconclusivo:
@@ -333,16 +340,42 @@ def _validar_cruzada_temas(
     return alertas
 
 
+def _normalizar_aspas(texto: str) -> str:
+    """Normalize quote variants to standard double quotes."""
+    if not texto:
+        return ""
+    quote_map = str.maketrans({
+        "“": '"',
+        "”": '"',
+        "„": '"',
+        "‟": '"',
+        "«": '"',
+        "»": '"',
+        "‹": '"',
+        "›": '"',
+        "‘": '"',
+        "’": '"',
+        "‚": '"',
+        "‛": '"',
+        "'": '"',
+        "`": '"',
+        "´": '"',
+    })
+    return texto.translate(quote_map)
+
+
 def _validar_transcricoes(minuta: str, texto_acordao: str) -> list[str]:
     """5.2.3 — Verify literal transcription excerpts exist in ruling text."""
     alertas: list[str] = []
+    minuta_normalizada = _normalizar_aspas(minuta)
+    texto_acordao_normalizado = _normalizar_aspas(texto_acordao)
 
     # Find quoted text in the draft (potential transcriptions)
-    quotes = re.findall(r'"([^"]{30,})"', minuta)
+    quotes = re.findall(r'"([^"]{30,})"', minuta_normalizada)
     for quote in quotes:
         # Check if the quoted text appears in the ruling
         clean_quote = quote.strip()[:100]
-        if clean_quote not in texto_acordao:
+        if clean_quote not in texto_acordao_normalizado:
             alertas.append(
                 f"Transcrição não encontrada no acórdão: '{clean_quote[:60]}...'"
             )
@@ -382,6 +415,7 @@ ETAPA3_USER_INSTRUCTION = (
     "Use os dados das Etapas 1 e 2 abaixo. A minuta deve conter "
     "Seção I (Relatório), Seção II (Análise Temática) e Seção III (Decisão).\n\n"
 )
+ETAPA3_CONCISA_INSTRUCTION = "Seja conciso. Minuta máxima de 800 palavras."
 
 ETAPA3_STRUCTURED_DEVELOPER = """
 Você deve responder APENAS JSON válido, sem markdown.
@@ -517,6 +551,16 @@ def _coletar_itens_evidencia_estruturados(
 
     dedup = _merge_list_unique(itens)
     return dedup[:limite]
+
+
+def _reduzir_contexto_retry(texto: str, percentual_reducao: float) -> str:
+    """Reduce context text by percentual for retry attempts."""
+    texto_limpo = str(texto or "")
+    if not texto_limpo:
+        return ""
+    reducao = min(max(percentual_reducao, 0.0), 0.9)
+    tamanho = max(1, int(len(texto_limpo) * (1.0 - reducao)))
+    return texto_limpo[:tamanho]
 
 
 def _resultado_etapa3_from_json(payload: dict) -> ResultadoEtapa3:
@@ -688,7 +732,7 @@ def executar_etapa3(
             + "\n\n--- FIM DA MINUTA DE REFERÊNCIA ---\n\n"
         )
 
-    user_message = (
+    base_user_message = (
         ETAPA3_USER_INSTRUCTION
         + bloco_referencia
         + "--- RESULTADO DA ETAPA 1 ---\n"
@@ -699,9 +743,22 @@ def executar_etapa3(
         + f"Decisão obrigatória para a Seção III: {decisao_deterministica.value}\n"
         + "Fundamentos determinísticos:\n"
         + fundamentos_texto
-        + "\n\n--- TEXTO DO ACÓRDÃO (para transcrição) ---\n"
-        + texto_acordao_ctx
     )
+
+    def _montar_user_message(
+        *,
+        acordao_ctx: str | None,
+        incluir_instrucao_concisa: bool = False,
+    ) -> str:
+        message = base_user_message
+        if incluir_instrucao_concisa:
+            message += "\n\n--- INSTRUÇÃO ADICIONAL ---\n" + ETAPA3_CONCISA_INSTRUCTION
+        if acordao_ctx is not None:
+            message += (
+                "\n\n--- TEXTO DO ACÓRDÃO (para transcrição) ---\n"
+                + acordao_ctx
+            )
+        return message
 
     # 5.1.3 — Call LLM (use hybrid model routing for draft generation)
     if modelo_override:
@@ -709,34 +766,70 @@ def executar_etapa3(
     else:
         model = get_model_for_task(TaskType.DRAFT_GENERATION)
     logger.info("🔄 Executando Etapa 3 — Geração da Minuta de Admissibilidade (modelo: %s)...", model)
-    tokens_pre = estimar_tokens(user_message)
-    structured_messages = build_messages(
-        stage="etapa3",
-        user_text=user_message,
-        developer_override=ETAPA3_STRUCTURED_DEVELOPER,
-        legacy_system_prompt=prompt_sistema.strip() if prompt_sistema and prompt_sistema.strip() else None,
-    )
+    user_message_base = _montar_user_message(acordao_ctx=texto_acordao_ctx)
+    tokens_pre = estimar_tokens(user_message_base)
     legacy_messages = build_messages(
         stage="etapa3",
-        user_text=user_message,
+        user_text=user_message_base,
         legacy_system_prompt=prompt_sistema.strip() if prompt_sistema and prompt_sistema.strip() else None,
     )
 
-    resultado_struct: ResultadoEtapa3 | None = None
-    structured_error: Exception | None = None
-    for attempt in (1, 2):
-        attempt_messages = structured_messages
-        if attempt == 2:
-            reinforced = (
+    texto_acordao_retry = _reduzir_contexto_retry(texto_acordao_ctx, percentual_reducao=0.25)
+    retry_attempts: list[dict[str, object]] = [
+        {
+            "attempt": 1,
+            "strategy": "contexto_integral",
+            "user_text": user_message_base,
+            "developer_prompt": ETAPA3_STRUCTURED_DEVELOPER,
+        },
+        {
+            "attempt": 2,
+            "strategy": "contexto_reduzido_75",
+            "user_text": _montar_user_message(
+                acordao_ctx=texto_acordao_retry,
+                incluir_instrucao_concisa=True,
+            ),
+            "developer_prompt": (
                 ETAPA3_STRUCTURED_DEVELOPER
                 + "\nReforço: resposta EXCLUSIVAMENTE JSON válido."
-            )
-            attempt_messages = build_messages(
-                stage="etapa3",
-                user_text=user_message,
-                developer_override=reinforced,
-                legacy_system_prompt=prompt_sistema.strip() if prompt_sistema and prompt_sistema.strip() else None,
-            )
+                + f"\n{ETAPA3_CONCISA_INSTRUCTION}"
+            ),
+        },
+    ]
+
+    if not ENABLE_FAIL_CLOSED:
+        retry_attempts.append(
+            {
+                "attempt": 3,
+                "strategy": "sem_texto_acordao",
+                "user_text": _montar_user_message(
+                    acordao_ctx=None,
+                    incluir_instrucao_concisa=True,
+                ),
+                "developer_prompt": (
+                    ETAPA3_STRUCTURED_DEVELOPER
+                    + "\nReforço: resposta EXCLUSIVAMENTE JSON válido."
+                    + f"\n{ETAPA3_CONCISA_INSTRUCTION}"
+                    + "\nNesta tentativa, use somente os resultados das Etapas 1 e 2."
+                ),
+            }
+        )
+
+    resultado_struct: ResultadoEtapa3 | None = None
+    structured_error: Exception | None = None
+    tentativa_estruturada_sucesso = 0
+    estrategia_retry_sucesso = ""
+    for attempt_cfg in retry_attempts:
+        attempt = int(attempt_cfg["attempt"])
+        strategy = str(attempt_cfg["strategy"])
+        user_text = str(attempt_cfg["user_text"])
+        developer_prompt = str(attempt_cfg["developer_prompt"])
+        attempt_messages = build_messages(
+            stage="etapa3",
+            user_text=user_text,
+            developer_override=developer_prompt,
+            legacy_system_prompt=prompt_sistema.strip() if prompt_sistema and prompt_sistema.strip() else None,
+        )
         try:
             payload = chamar_llm_json(
                 messages=attempt_messages,
@@ -749,11 +842,22 @@ def executar_etapa3(
             )
             resultado_struct = _resultado_etapa3_from_json(payload)
             if resultado_struct.minuta_completa:
-                logger.info("Etapa 3 estruturada (JSON) concluída com sucesso na tentativa %d.", attempt)
+                tentativa_estruturada_sucesso = attempt
+                estrategia_retry_sucesso = strategy
+                logger.info(
+                    "Etapa 3 estruturada (JSON) concluída com sucesso na tentativa %d (%s).",
+                    attempt,
+                    strategy,
+                )
                 break
         except Exception as e:
             structured_error = e
-            logger.warning("Falha no modo estruturado da Etapa 3 (tentativa %d): %s", attempt, e)
+            logger.warning(
+                "Falha no modo estruturado da Etapa 3 (tentativa %d, estratégia=%s): %s",
+                attempt,
+                strategy,
+                e,
+            )
 
     if resultado_struct is None or not resultado_struct.minuta_completa:
         logger.warning(
@@ -775,6 +879,8 @@ def executar_etapa3(
             response.tokens.completion_tokens,
         )
         minuta = response.content
+        tentativa_estruturada_sucesso = 0
+        estrategia_retry_sucesso = "fallback_legado"
     else:
         minuta = resultado_struct.minuta_completa
 
@@ -848,6 +954,8 @@ def executar_etapa3(
         aviso_inconclusivo=_tem_aviso_inconclusivo(minuta),
         motivo_bloqueio_codigo=motivo_codigo,
         motivo_bloqueio_descricao=motivo_descricao,
+        tentativa_estruturada_sucesso=tentativa_estruturada_sucesso,
+        estrategia_retry_sucesso=estrategia_retry_sucesso,
     )
 
     if todos_alertas:
@@ -1158,6 +1266,8 @@ def executar_etapa3_com_chunking(
             if decisao_deterministica == Decisao.INCONCLUSIVO
             else ""
         ),
+        tentativa_estruturada_sucesso=1,
+        estrategia_retry_sucesso="chunking_map_reduce",
     )
 
     logger.info(

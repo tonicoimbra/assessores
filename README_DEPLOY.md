@@ -100,3 +100,7 @@ Se o deploy ficar em loop/restart, o sintoma mais comum é comando de start inco
 ## Observações Importantes
 *   **Persistência:** Em ambas as opções (camada gratuita), os arquivos gerados (PDFs, Markdown) são apagados quando o container reinicia. Para persistência real, seria necessário integrar com S3 ou Google Drive API (já temos clientes de Drive no projeto, basta ativar).
 *   **Porta:** A aplicação foi configurada para ler a variável `PORT` automaticamente, adaptando-se a qualquer ambiente.
+*   **Pricing de modelos:** Atualize `pricing.json` mensalmente para manter estimativas de custo aderentes aos valores vigentes da OpenRouter:
+    ```bash
+    python3 scripts/atualizar_pricing.py --version 2026-03
+    ```

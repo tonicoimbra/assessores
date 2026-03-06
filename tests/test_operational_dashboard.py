@@ -1,11 +1,13 @@
 """Tests for operational dashboard aggregation."""
 
+import csv
 import json
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 
-from src.operational_dashboard import gerar_dashboard_operacional
+from src.operational_dashboard import gerar_dashboard_operacional, obter_metricas_operacionais
 
 
 def _write_snapshot(path: Path, payload: dict) -> None:
@@ -20,11 +22,15 @@ def test_dashboard_handles_empty_snapshot_directory(tmp_path: Path) -> None:
 
     assert dashboard_json.exists()
     assert dashboard_md.exists()
+    csv_files = sorted((tmp_path / "out").glob("dashboard_operacional_*.csv"))
+    assert len(csv_files) == 1
     assert payload["execucoes"]["total"] == 0
     assert payload["tokens"]["total"] == 0
     assert payload["custo_estimado_usd"]["total"] == 0.0
     assert payload["qualidade"]["retrabalho_retry"]["taxa_por_call"] == 0.0
     assert payload["qualidade"]["cobertura_evidencia"]["taxa"] == 0.0
+    assert payload["qualidade"]["alertas_validacao"]["taxa"] == 0.0
+    assert payload["distribuicao_decisao_por_semana"] == []
 
 
 def test_dashboard_aggregates_latency_errors_tokens_and_cost(tmp_path: Path) -> None:
@@ -207,3 +213,120 @@ def test_dashboard_includes_build_metadata_from_environment(
     assert payload["build"]["build_id"] == "901"
     assert payload["build"]["commit_sha"] == "abc123"
     assert payload["build"]["branch"] == "main"
+
+
+def test_dashboard_adds_weekly_decision_alert_rate_top5_and_csv(tmp_path: Path) -> None:
+    snapshot_dir = tmp_path / "snapshots"
+    output_dir = tmp_path / "out"
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+
+    _write_snapshot(
+        snapshot_dir / "snapshot_execucao_a.json",
+        {
+            "metadata": {"inicio": "2026-02-18T10:00:00", "fim": "2026-02-18T10:00:08"},
+            "stages": {
+                "etapa1": {"validacao_erros": []},
+                "etapa2": {"validacao_erros": ["Seção II não encontrada"]},
+                "etapa3": {"validacao_erros": [], "resultado": {"decisao": "ADMITIDO"}},
+            },
+        },
+    )
+    _write_snapshot(
+        snapshot_dir / "snapshot_execucao_b.json",
+        {
+            "metadata": {"inicio": "2026-02-19T10:00:00", "fim": "2026-02-19T10:00:12"},
+            "stages": {
+                "etapa1": {"validacao_erros": []},
+                "etapa2": {"validacao_erros": []},
+                "etapa3": {
+                    "validacao_erros": ["Súmula não encontrada no acórdão"],
+                    "resultado": {"decisao": "INADMITIDO"},
+                },
+            },
+        },
+    )
+    _write_snapshot(
+        snapshot_dir / "snapshot_execucao_c.json",
+        {
+            "metadata": {"inicio": "2026-02-28T10:00:00", "fim": "2026-02-28T10:00:12"},
+            "stages": {
+                "etapa1": {"validacao_erros": []},
+                "etapa2": {"validacao_erros": []},
+                "etapa3": {"validacao_erros": [], "resultado": {"decisao": "INCONCLUSIVO"}},
+            },
+        },
+    )
+
+    _, _, payload = gerar_dashboard_operacional(snapshot_dir=snapshot_dir, output_dir=output_dir)
+
+    alertas = payload["qualidade"]["alertas_validacao"]
+    assert alertas["minutas_com_alerta"] == 2
+    assert alertas["minutas_avaliadas"] == 3
+    assert alertas["taxa"] == 0.667
+    assert alertas["top_5_tipos"][0] == {"tipo": "seção ausente", "quantidade": 1}
+    assert alertas["top_5_tipos"][1] == {"tipo": "súmula não encontrada", "quantidade": 1}
+
+    distribuicao = {item["semana"]: item for item in payload["distribuicao_decisao_por_semana"]}
+    week_1 = datetime.fromisoformat("2026-02-18T10:00:08").isocalendar()
+    week_2 = datetime.fromisoformat("2026-02-28T10:00:12").isocalendar()
+    semana_1 = f"{week_1.year}-W{week_1.week:02d}"
+    semana_2 = f"{week_2.year}-W{week_2.week:02d}"
+    assert distribuicao[semana_1]["ADMITIDO"] == 1
+    assert distribuicao[semana_1]["INADMITIDO"] == 1
+    assert distribuicao[semana_1]["INCONCLUSIVO"] == 0
+    assert distribuicao[semana_2]["ADMITIDO"] == 0
+    assert distribuicao[semana_2]["INADMITIDO"] == 0
+    assert distribuicao[semana_2]["INCONCLUSIVO"] == 1
+
+    csv_files = sorted(output_dir.glob("dashboard_operacional_*.csv"))
+    assert len(csv_files) == 1
+    with csv_files[0].open("r", encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert any(
+        row["categoria"] == "alertas_validacao"
+        and row["metrica"] == "taxa"
+        and row["valor"] == "0.667"
+        for row in rows
+    )
+    assert any(
+        row["categoria"] == "distribuicao_decisao_por_semana"
+        and row["metrica"] == "INCONCLUSIVO"
+        and row["semana"] == semana_2
+        and row["valor"] == "1"
+        for row in rows
+    )
+
+
+def test_obter_metricas_operacionais_filters_by_period(tmp_path: Path) -> None:
+    snapshot_dir = tmp_path / "snapshots"
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+
+    recent_end = (datetime.now() - timedelta(days=1)).replace(microsecond=0)
+    old_end = (datetime.now() - timedelta(days=40)).replace(microsecond=0)
+
+    _write_snapshot(
+        snapshot_dir / "snapshot_execucao_recente.json",
+        {
+            "metadata": {
+                "inicio": (recent_end - timedelta(seconds=10)).isoformat(),
+                "fim": recent_end.isoformat(),
+            },
+            "stages": {"etapa3": {"resultado": {"decisao": "ADMITIDO"}}},
+        },
+    )
+    _write_snapshot(
+        snapshot_dir / "snapshot_execucao_antigo.json",
+        {
+            "metadata": {
+                "inicio": (old_end - timedelta(seconds=10)).isoformat(),
+                "fim": old_end.isoformat(),
+            },
+            "stages": {"etapa3": {"resultado": {"decisao": "INADMITIDO"}}},
+        },
+    )
+
+    payload = obter_metricas_operacionais(snapshot_dir=snapshot_dir, period_days=30)
+
+    assert payload["execucoes"]["total"] == 1
+    assert payload["execucoes"]["com_decisao"] == 1
+    assert payload["periodo_dias"] == 30

@@ -48,10 +48,17 @@ def cmd_processar(args: argparse.Namespace) -> None:
     """Execute the analysis pipeline."""
     validate_api_key()
 
-    # Validate PDFs exist
-    for pdf in args.pdfs:
-        if not Path(pdf).exists():
-            print(f"❌ Arquivo não encontrado: {pdf}")
+    # Validate files exist and are supported documents.
+    for doc_path in args.pdfs:
+        path = Path(doc_path)
+        if not path.exists():
+            print(f"❌ Arquivo não encontrado: {doc_path}")
+            sys.exit(1)
+        if path.suffix.lower() not in {".pdf", ".docx"}:
+            print(
+                "❌ Formato inválido: "
+                f"{path.name}. Envie apenas arquivos .pdf ou .docx."
+            )
             sys.exit(1)
 
     pipeline = PipelineAdmissibilidade(
@@ -65,7 +72,7 @@ def cmd_processar(args: argparse.Namespace) -> None:
     print(f"\n🔄 Iniciando análise de admissibilidade...")
     print(f"   Modelo: {args.modelo}")
     print(f"   Formato: {args.formato}")
-    print(f"   PDFs: {len(args.pdfs)} arquivo(s)")
+    print(f"   Documentos: {len(args.pdfs)} arquivo(s)")
     print()
 
     try:
@@ -162,6 +169,11 @@ def cmd_baseline(args: argparse.Namespace) -> None:
     print(f"   Etapa 1 (campos críticos): {summary['etapa1_critical_fields_accuracy']:.4f}")
     print(f"   Etapa 2 (temas): {summary['etapa2_temas_count_accuracy']:.4f}")
     print(f"   Etapa 3 (decisão): {summary['etapa3_decisao_accuracy']:.4f}")
+    print(f"   Etapa 3 (INCONCLUSIVO bruto): {summary['etapa3_inconclusivo_rate']:.4f}")
+    print(
+        "   Etapa 3 (INCONCLUSIVO não esperado): "
+        f"{summary['etapa3_inconclusivo_unexpected_rate']:.4f}"
+    )
     print(f"   JSON: {baseline_json}")
     print(f"   Markdown: {baseline_md}")
 
@@ -247,10 +259,26 @@ def cmd_alerts(args: argparse.Namespace) -> None:
             else "n/d"
         )
         delta = f"{check['delta']:.4f}" if isinstance(check["delta"], float) else "n/d"
+        resource_scope = (
+            f" [{check['resource_type']}]"
+            if check.get("resource_type")
+            else ""
+        )
         print(
-            f"   [{status}] {check['metric']}: atual={check['observed']:.4f} "
+            f"   [{status}] {check['metric']}{resource_scope}: atual={check['observed']:.4f} "
             f"anterior={previous} delta={delta}"
         )
+
+    quality_by_resource = report.get("quality_by_resource_type", {})
+    current_by_resource = quality_by_resource.get("current", {})
+    if isinstance(current_by_resource, dict) and current_by_resource:
+        print("   --- Taxa INCONCLUSIVO por espécie de recurso ---")
+        for resource_type, info in sorted(current_by_resource.items()):
+            if not isinstance(info, dict):
+                continue
+            rate = float(info.get("inconclusivo_rate", 0.0) or 0.0)
+            sample_size = int(info.get("total_cases", 0) or 0)
+            print(f"   • {resource_type}: taxa={rate:.4f} (n={sample_size})")
 
     if report["has_alerts"]:
         for alert in report["alerts"]:
@@ -297,11 +325,14 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="comando", help="Comandos disponíveis")
 
     # processar
-    proc = subparsers.add_parser("processar", help="Processar PDFs de recurso/acórdão")
+    proc = subparsers.add_parser(
+        "processar",
+        help="Processar documentos de recurso/acórdão (.pdf/.docx)",
+    )
     proc.add_argument(
         "pdfs",
         nargs="+",
-        help="Caminhos para os arquivos PDF",
+        help="Caminhos para os arquivos de entrada (.pdf/.docx)",
     )
     proc.add_argument(
         "--modelo",

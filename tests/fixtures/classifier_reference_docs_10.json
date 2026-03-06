@@ -1,0 +1,52 @@
+[
+  {
+    "id": "ref_01_recurso_especial",
+    "texto": "PROJUDI - Recurso: Recurso Especial com razões recursais e indicação do art. 105, III, da Constituição Federal.",
+    "esperado": "RECURSO"
+  },
+  {
+    "id": "ref_02_recurso_extraordinario",
+    "texto": "Recurso Extraordinário interposto com fundamento no art. 102, III, da CF, requerendo admissibilidade.",
+    "esperado": "RECURSO"
+  },
+  {
+    "id": "ref_03_agravo_regimental",
+    "texto": "Agravo Regimental contra decisão monocrática, com pedido de reconsideração e processamento do recurso.",
+    "esperado": "RECURSO"
+  },
+  {
+    "id": "ref_04_agravo_interno",
+    "texto": "Agravo Interno interposto pela parte recorrente, com petição de recurso e razões recursais.",
+    "esperado": "RECURSO"
+  },
+  {
+    "id": "ref_05_embargos_declaracao",
+    "texto": "Embargos de Declaração opostos para sanar omissão no julgamento e viabilizar prequestionamento.",
+    "esperado": "RECURSO"
+  },
+  {
+    "id": "ref_06_acordao_classico",
+    "texto": "ACÓRDÃO. Vistos, relatados e discutidos estes autos. ACORDAM os Desembargadores da Câmara Cível, por unanimidade.",
+    "esperado": "ACORDAO"
+  },
+  {
+    "id": "ref_07_acordao_ementa",
+    "texto": "EMENTA: Direito civil. Apelação. Relator: Des. Fulano. Julgamento colegiado com acórdão publicado.",
+    "esperado": "ACORDAO"
+  },
+  {
+    "id": "ref_08_acordao_tribunal",
+    "texto": "TRIBUNAL DE JUSTIÇA DO PARANÁ. ACÓRDÃO da 10ª Câmara Cível, com votação unânime no colegiado.",
+    "esperado": "ACORDAO"
+  },
+  {
+    "id": "ref_09_acordao_vistos",
+    "texto": "Vistos, relatados e discutidos os autos, decide a Câmara Cível negar provimento ao recurso interposto.",
+    "esperado": "ACORDAO"
+  },
+  {
+    "id": "ref_10_acordao_acordam",
+    "texto": "ACORDAM os integrantes da Câmara Cível em manter a sentença, conforme voto do Relator.",
+    "esperado": "ACORDAO"
+  }
+]

@@ -1,5 +1,6 @@
 """Cache management: file-based cache with TTL for LLM responses."""
 
+import base64
 import hashlib
 import json
 import logging
@@ -8,7 +9,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from src.config import CACHE_TTL_HOURS, OUTPUTS_DIR
+from src.config import CACHE_ENCRYPTION_KEY, CACHE_TTL_SECONDS, OUTPUTS_DIR
+from src.crypto_utils import decrypt_text, encrypt_text, generate_key
 
 logger = logging.getLogger("assessor_ai")
 
@@ -24,24 +26,50 @@ class CacheManager:
     - Persists across sessions
     """
 
-    def __init__(self, cache_dir: Path | None = None, ttl_hours: int | None = None):
+    def __init__(
+        self,
+        cache_dir: Path | None = None,
+        ttl_seconds: int | None = None,
+        ttl_hours: float | None = None,
+        encryption_key: str | None = None,
+    ):
         """
         Initialize cache manager.
 
         Args:
             cache_dir: Directory for cache storage (default: outputs/.cache).
-            ttl_hours: Cache TTL in hours (default: from config).
+            ttl_seconds: Cache TTL in seconds (default: from config).
+            ttl_hours: Legacy cache TTL in hours (deprecated; backward compatible).
         """
         self.cache_dir = cache_dir or (OUTPUTS_DIR / ".cache")
-        self.ttl_seconds = (ttl_hours or CACHE_TTL_HOURS) * 3600
+        effective_ttl_seconds = ttl_seconds
+        if effective_ttl_seconds is None and ttl_hours is not None:
+            effective_ttl_seconds = int(float(ttl_hours) * 3600)
+        if effective_ttl_seconds is None:
+            effective_ttl_seconds = CACHE_TTL_SECONDS
+        self.ttl_seconds = max(1, int(effective_ttl_seconds))
+        self.encryption_key = str(
+            encryption_key if encryption_key is not None else CACHE_ENCRYPTION_KEY
+        ).strip()
+        self.uses_ephemeral_key = False
+        if not self.encryption_key:
+            self.encryption_key = generate_key()
+            self.uses_ephemeral_key = True
 
         # Create cache directory
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
         logger.debug(
-            "Cache manager initialized: dir=%s, ttl=%dh",
-            self.cache_dir, self.ttl_seconds // 3600,
+            "Cache manager initialized: dir=%s, ttl=%dh, encryption=%s",
+            self.cache_dir,
+            self.ttl_seconds // 3600,
+            "ephemeral" if self.uses_ephemeral_key else "configured",
         )
+        if self.uses_ephemeral_key:
+            logger.warning(
+                "CACHE_ENCRYPTION_KEY ausente: cache em repouso será criptografado com chave efêmera "
+                "(não persistente entre reinicializações)."
+            )
 
     def _hash_text(self, text: str) -> str:
         """
@@ -146,6 +174,48 @@ class CacheManager:
         category_dir.mkdir(parents=True, exist_ok=True)
         return category_dir / f"{key}.json"
 
+    def _unwrap_cached_entry(self, cached_data: Any, cache_file: Path) -> tuple[Any, float, bool]:
+        """Return payload, creation timestamp and whether entry is legacy plaintext."""
+        stat_mtime = cache_file.stat().st_mtime
+        created_at = stat_mtime
+        payload = cached_data
+        is_legacy_plaintext = False
+
+        if isinstance(cached_data, dict) and isinstance(cached_data.get("_cache_meta"), dict):
+            meta = cached_data.get("_cache_meta") or {}
+            try:
+                meta_created_at = float(meta.get("created_at") or created_at)
+                # Keep compatibility with previous mtime-based expiry semantics.
+                created_at = min(meta_created_at, stat_mtime)
+            except (TypeError, ValueError):
+                created_at = stat_mtime
+            encrypted = bool(meta.get("encrypted"))
+            if encrypted:
+                blob_b64 = cached_data.get("payload_encrypted")
+                if not isinstance(blob_b64, str) or not blob_b64.strip():
+                    raise ValueError("Entrada de cache criptografada inválida (sem payload_encrypted).")
+                try:
+                    blob = base64.urlsafe_b64decode(blob_b64.encode("ascii"))
+                except Exception as exc:
+                    raise ValueError("Falha ao decodificar payload criptografado de cache.") from exc
+                payload_text = decrypt_text(blob, self.encryption_key)
+                payload = json.loads(payload_text)
+                return payload, created_at, False
+
+            if "payload" in cached_data:
+                payload = cached_data.get("payload")
+                is_legacy_plaintext = True
+                return payload, created_at, is_legacy_plaintext
+
+        # Unknown/legacy shape without metadata is treated as plaintext legacy.
+        return payload, created_at, True
+
+    def _is_entry_expired(self, created_at: float, current_time: float | None = None) -> bool:
+        """Check if an entry is expired based on creation timestamp and TTL."""
+        now = current_time if current_time is not None else time.time()
+        age_seconds = now - created_at
+        return age_seconds > self.ttl_seconds
+
     def get(self, key: str, category: str = "general") -> Any | None:
         """
         Retrieve cached value if it exists and is not expired.
@@ -163,29 +233,38 @@ class CacheManager:
             logger.debug("Cache miss: key=%s, category=%s", key, category)
             return None
 
-        # Check TTL
-        age_seconds = time.time() - cache_file.stat().st_mtime
-        if age_seconds > self.ttl_seconds:
-            logger.debug(
-                "Cache expired: key=%s, age=%.1fh, ttl=%.1fh",
-                key, age_seconds / 3600, self.ttl_seconds / 3600,
-            )
-            # Delete expired cache
-            cache_file.unlink()
-            return None
-
         # Read cached value
         try:
             with cache_file.open("r", encoding="utf-8") as f:
                 cached_data = json.load(f)
 
+            payload, created_at, is_legacy_plaintext = self._unwrap_cached_entry(
+                cached_data,
+                cache_file,
+            )
+            if is_legacy_plaintext:
+                logger.warning(
+                    "Entrada legacy em texto plano removida do cache: %s",
+                    cache_file,
+                )
+                cache_file.unlink(missing_ok=True)
+                return None
+            age_seconds = time.time() - created_at
+            if self._is_entry_expired(created_at):
+                logger.debug(
+                    "Cache expired: key=%s, age=%.1fh, ttl=%.1fh",
+                    key, age_seconds / 3600, self.ttl_seconds / 3600,
+                )
+                cache_file.unlink(missing_ok=True)
+                return None
+
             logger.debug(
                 "Cache hit: key=%s, category=%s, age=%.1fh",
                 key, category, age_seconds / 3600,
             )
-            return cached_data
+            return payload
 
-        except (json.JSONDecodeError, OSError) as e:
+        except (json.JSONDecodeError, ValueError, OSError) as e:
             logger.warning("Failed to read cache file %s: %s", cache_file, e)
             # Delete corrupted cache
             cache_file.unlink(missing_ok=True)
@@ -203,8 +282,19 @@ class CacheManager:
         cache_file = self._get_cache_path(key, category)
 
         try:
+            payload_text = json.dumps(value, ensure_ascii=False, default=str)
+            encrypted_blob = encrypt_text(payload_text, self.encryption_key)
+            envelope = {
+                "_cache_meta": {
+                    "created_at": time.time(),
+                    "ttl_seconds": self.ttl_seconds,
+                    "encrypted": True,
+                    "key_mode": "ephemeral" if self.uses_ephemeral_key else "configured",
+                },
+                "payload_encrypted": base64.urlsafe_b64encode(encrypted_blob).decode("ascii"),
+            }
             with cache_file.open("w", encoding="utf-8") as f:
-                json.dump(value, f, indent=2, ensure_ascii=False, default=str)
+                json.dump(envelope, f, indent=2, ensure_ascii=False, default=str)
 
             logger.debug("Cache stored: key=%s, category=%s", key, category)
 
@@ -263,7 +353,7 @@ class CacheManager:
             logger.info("Cache cleared: all categories, files=%d", total)
             return total
 
-    def cleanup_expired(self) -> int:
+    def purge_expired(self) -> int:
         """
         Remove expired cache entries across all categories.
 
@@ -274,15 +364,31 @@ class CacheManager:
         current_time = time.time()
 
         for cache_file in self.cache_dir.rglob("*.json"):
-            age_seconds = current_time - cache_file.stat().st_mtime
-            if age_seconds > self.ttl_seconds:
-                cache_file.unlink()
+            try:
+                with cache_file.open("r", encoding="utf-8") as f:
+                    cached_data = json.load(f)
+                _, created_at, is_legacy_plaintext = self._unwrap_cached_entry(
+                    cached_data,
+                    cache_file,
+                )
+                if is_legacy_plaintext or self._is_entry_expired(
+                    created_at,
+                    current_time=current_time,
+                ):
+                    cache_file.unlink(missing_ok=True)
+                    deleted += 1
+            except (json.JSONDecodeError, ValueError, OSError):
+                cache_file.unlink(missing_ok=True)
                 deleted += 1
 
         if deleted > 0:
-            logger.info("Cleanup: %d expired cache entries deleted", deleted)
+            logger.info("Cache purge: %d expired/corrupted entries deleted", deleted)
 
         return deleted
+
+    def cleanup_expired(self) -> int:
+        """Backward-compatible alias for purge_expired()."""
+        return self.purge_expired()
 
     def get_stats(self) -> dict[str, Any]:
         """

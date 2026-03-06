@@ -6,11 +6,16 @@ import time
 import os
 from pathlib import Path
 
+import src.crypto_utils as cu
 from src.cache_manager import CacheManager
 
 
 class TestCacheManager:
     """Cache behavior: read/write, TTL, cleanup, and stats."""
+
+    def test_ttl_seconds_constructor_overrides_legacy_hours(self, tmp_path: Path) -> None:
+        cache = CacheManager(cache_dir=tmp_path / ".cache", ttl_seconds=90, ttl_hours=24)
+        assert cache.ttl_seconds == 90
 
     def test_hash_is_stable_and_short(self, tmp_path: Path) -> None:
         cache = CacheManager(cache_dir=tmp_path / ".cache", ttl_hours=1)
@@ -116,6 +121,18 @@ class TestCacheManager:
         assert cache.get(stale_key, "llm") is None
         assert cache.get(fresh_key, "llm") == {"v": "new"}
 
+    def test_purge_expired_alias_removes_stale_entries(self, tmp_path: Path) -> None:
+        cache = CacheManager(cache_dir=tmp_path / ".cache", ttl_seconds=1)
+        stale_key = cache._hash_text("stale-purge")
+        cache.set(stale_key, {"v": "old"}, category="llm")
+        stale_file = cache._get_cache_path(stale_key, "llm")
+        old_mtime = time.time() - 30
+        os.utime(stale_file, (old_mtime, old_mtime))
+
+        deleted = cache.purge_expired()
+        assert deleted == 1
+        assert cache.get(stale_key, "llm") is None
+
     def test_get_stats_reports_category_counts(self, tmp_path: Path) -> None:
         cache = CacheManager(cache_dir=tmp_path / ".cache", ttl_hours=2)
         cache.set(cache._hash_text("1"), {"v": 1}, category="a")
@@ -138,3 +155,31 @@ class TestCacheManager:
         assert stats["total_files"] == 3
         assert stats["categories"]["llm_calls/openai/gpt-4o/v1/raw"] == 2
         assert stats["categories"]["llm_calls/openai/gpt-4o/v2/json_object"] == 1
+
+    def test_cache_payload_is_encrypted_at_rest(self, tmp_path: Path) -> None:
+        cache = CacheManager(
+            cache_dir=tmp_path / ".cache",
+            ttl_hours=1,
+            encryption_key=cu.generate_key(),
+        )
+        key = cache._hash_text("sigilo")
+        secret_text = "JOÃO DA SILVA - processo 1234567-89.2024.8.16.0001"
+        cache.set(key, {"texto": secret_text}, category="llm")
+
+        cache_file = cache._get_cache_path(key, "llm")
+        raw = cache_file.read_text(encoding="utf-8")
+
+        assert "payload_encrypted" in raw
+        assert secret_text not in raw
+
+    def test_get_removes_legacy_plaintext_entry(self, tmp_path: Path) -> None:
+        cache = CacheManager(cache_dir=tmp_path / ".cache", ttl_hours=1)
+        key = cache._hash_text("legacy")
+        cache_file = cache._get_cache_path(key, "llm")
+        cache_file.write_text(
+            '{\n  "_cache_meta": {"created_at": 1, "ttl_seconds": 3600},\n  "payload": {"x": "plain"}\n}',
+            encoding="utf-8",
+        )
+
+        assert cache.get(key, category="llm") is None
+        assert not cache_file.exists()

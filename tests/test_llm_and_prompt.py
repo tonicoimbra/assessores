@@ -8,9 +8,14 @@ import pytest
 from src.cache_manager import CacheManager
 from src.config import PROMPTS_DIR
 from src.llm_client import (
+    CacheManagerIdempotencyBackend,
+    CircuitBreaker,
+    CircuitBreakerState,
     LLMError,
     LLMResponse,
     LLMTruncatedResponseError,
+    MemoryIdempotencyBackend,
+    SQLiteIdempotencyBackend,
     TokenTracker,
     TokenUsage,
 )
@@ -171,6 +176,52 @@ class TestChamarLLM:
 
         assert any("truncada" in r.message for r in caplog.records)
         assert mock_client.chat.completions.create.call_count >= 2
+
+    @patch("src.llm_client._get_client")
+    def test_truncated_response_respects_configured_max_tokens_ceiling(
+        self,
+        mock_get_client,
+        monkeypatch,
+    ) -> None:
+        mock_choice = MagicMock()
+        mock_choice.finish_reason = "length"
+        mock_choice.message.content = "resposta truncada..."
+
+        mock_usage = MagicMock()
+        mock_usage.prompt_tokens = 50
+        mock_usage.completion_tokens = 4096
+        mock_usage.total_tokens = 4146
+
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_response.usage = mock_usage
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_get_client.return_value = mock_client
+
+        monkeypatch.setattr("src.llm_client.MAX_TOKENS", 2048)
+        monkeypatch.setattr("src.llm_client.MAX_TOKENS_CEILING", 3000)
+        monkeypatch.setattr("src.llm_client.LLM_MAX_RETRIES", 3)
+        monkeypatch.setattr("src.llm_client.ENABLE_RATE_LIMITING", False)
+        monkeypatch.setattr("src.llm_client.ENABLE_CACHING", False)
+        monkeypatch.setattr(
+            "src.llm_client._get_token_manager",
+            lambda: type("FakeTokenManager", (), {"estimate_tokens": lambda self, *_args, **_kwargs: 32})(),
+        )
+
+        from src.llm_client import chamar_llm
+
+        with pytest.raises(LLMTruncatedResponseError):
+            chamar_llm("system", "user")
+
+        max_tokens_usados = [
+            int(call.kwargs["max_tokens"])
+            for call in mock_client.chat.completions.create.call_args_list
+        ]
+        assert max_tokens_usados[0] == 2048
+        assert all(tokens <= 3000 for tokens in max_tokens_usados)
+        assert 3000 in max_tokens_usados
 
     @patch("src.llm_client._get_client")
     def test_cache_hit_when_signature_is_identical(self, mock_get_client, tmp_path: Path, monkeypatch) -> None:
@@ -335,10 +386,16 @@ class TestChamarLLM:
         mock_client.chat.completions.create.return_value = mock_response
         mock_get_client.return_value = mock_client
 
-        from src.llm_client import _IDEMPOTENCY_CACHE, chamar_llm_with_rate_limit
+        from src.llm_client import chamar_llm_with_rate_limit
 
-        _IDEMPOTENCY_CACHE.clear()
+        memory_backend = MemoryIdempotencyBackend({}, ttl_seconds=24 * 3600)
+        monkeypatch.setattr("src.llm_client._get_idempotency_backend", lambda: memory_backend)
         monkeypatch.setattr("src.llm_client.ENABLE_CACHING", False)
+        monkeypatch.setattr("src.llm_client.ENABLE_RATE_LIMITING", False)
+        monkeypatch.setattr(
+            "src.llm_client._get_token_manager",
+            lambda: type("FakeTokenManager", (), {"estimate_tokens": lambda self, *_args, **_kwargs: 32})(),
+        )
 
         r1 = chamar_llm_with_rate_limit("sys", "user", request_id="req-123", max_tokens=32)
         r2 = chamar_llm_with_rate_limit("sys", "user", request_id="req-123", max_tokens=32)
@@ -366,16 +423,243 @@ class TestChamarLLM:
         mock_client.chat.completions.create.return_value = mock_response
         mock_get_client.return_value = mock_client
 
-        from src.llm_client import _IDEMPOTENCY_CACHE, chamar_llm_with_rate_limit
+        from src.llm_client import chamar_llm_with_rate_limit
 
-        _IDEMPOTENCY_CACHE.clear()
+        memory_backend = MemoryIdempotencyBackend({}, ttl_seconds=24 * 3600)
+        monkeypatch.setattr("src.llm_client._get_idempotency_backend", lambda: memory_backend)
         monkeypatch.setattr("src.llm_client.ENABLE_CACHING", False)
+        monkeypatch.setattr("src.llm_client.ENABLE_RATE_LIMITING", False)
+        monkeypatch.setattr(
+            "src.llm_client._get_token_manager",
+            lambda: type("FakeTokenManager", (), {"estimate_tokens": lambda self, *_args, **_kwargs: 32})(),
+        )
 
         chamar_llm_with_rate_limit("sys", "user-a", request_id="req-xyz", max_tokens=32)
         with pytest.raises(LLMError):
             chamar_llm_with_rate_limit("sys", "user-b", request_id="req-xyz", max_tokens=32)
 
         assert mock_client.chat.completions.create.call_count == 1
+
+
+class TestIdempotencyBackends:
+    """Persistent idempotency backend coverage (memory/sqlite/cache-manager)."""
+
+    def test_memory_backend_expires_records_by_ttl(self) -> None:
+        clock = {"now": 0.0}
+
+        def fake_time() -> float:
+            return float(clock["now"])
+
+        backend = MemoryIdempotencyBackend({}, ttl_seconds=10, time_fn=fake_time)
+        backend.set("req-a", fingerprint="fp-a", response={"content": "ok"})
+        assert backend.get("req-a") is not None
+
+        clock["now"] = 11.0
+        assert backend.get("req-a") is None
+
+    def test_sqlite_backend_persists_across_instances(self, tmp_path: Path) -> None:
+        db_path = tmp_path / "idempotency.sqlite3"
+        backend_writer = SQLiteIdempotencyBackend(db_path, ttl_seconds=24 * 3600)
+        backend_writer.set(
+            "req-persist",
+            fingerprint="fp-persist",
+            response={"content": "persisted"},
+        )
+
+        backend_reader = SQLiteIdempotencyBackend(db_path, ttl_seconds=24 * 3600)
+        cached = backend_reader.get("req-persist")
+
+        assert cached is not None
+        assert cached["fingerprint"] == "fp-persist"
+        assert cached["response"]["content"] == "persisted"
+
+    def test_sqlite_backend_expires_records_by_ttl(self, tmp_path: Path) -> None:
+        clock = {"now": 100.0}
+
+        def fake_time() -> float:
+            return float(clock["now"])
+
+        backend = SQLiteIdempotencyBackend(
+            tmp_path / "idempotency_expire.sqlite3",
+            ttl_seconds=5,
+            time_fn=fake_time,
+        )
+        backend.set("req-expire", fingerprint="fp", response={"content": "old"})
+        assert backend.get("req-expire") is not None
+
+        clock["now"] = 106.0
+        assert backend.get("req-expire") is None
+
+    @patch("src.llm_client._get_client")
+    def test_cache_manager_backend_round_trip(self, mock_get_client, tmp_path: Path, monkeypatch) -> None:
+        mock_choice = MagicMock()
+        mock_choice.finish_reason = "stop"
+        mock_choice.message.content = "cache-manager-idempotent"
+
+        mock_usage = MagicMock()
+        mock_usage.prompt_tokens = 7
+        mock_usage.completion_tokens = 5
+        mock_usage.total_tokens = 12
+
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_response.usage = mock_usage
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_get_client.return_value = mock_client
+
+        from src.llm_client import chamar_llm_with_rate_limit
+
+        cache = CacheManager(cache_dir=tmp_path / ".cache", ttl_seconds=3600)
+        cache_backend = CacheManagerIdempotencyBackend(cache, ttl_seconds=24 * 3600)
+        monkeypatch.setattr("src.llm_client._get_idempotency_backend", lambda: cache_backend)
+        monkeypatch.setattr("src.llm_client.ENABLE_CACHING", False)
+        monkeypatch.setattr("src.llm_client.ENABLE_RATE_LIMITING", False)
+        monkeypatch.setattr(
+            "src.llm_client._get_token_manager",
+            lambda: type("FakeTokenManager", (), {"estimate_tokens": lambda self, *_args, **_kwargs: 32})(),
+        )
+
+        r1 = chamar_llm_with_rate_limit("sys", "user", request_id="req-cache", max_tokens=32)
+        r2 = chamar_llm_with_rate_limit("sys", "user", request_id="req-cache", max_tokens=32)
+
+        assert r1.content == "cache-manager-idempotent"
+        assert r2.content == "cache-manager-idempotent"
+        assert mock_client.chat.completions.create.call_count == 1
+
+    @patch("src.llm_client._get_client")
+    def test_chamar_llm_with_sqlite_backend_reuses_response(self, mock_get_client, tmp_path: Path, monkeypatch) -> None:
+        mock_choice = MagicMock()
+        mock_choice.finish_reason = "stop"
+        mock_choice.message.content = "sqlite-idempotent"
+
+        mock_usage = MagicMock()
+        mock_usage.prompt_tokens = 9
+        mock_usage.completion_tokens = 4
+        mock_usage.total_tokens = 13
+
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_response.usage = mock_usage
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_get_client.return_value = mock_client
+
+        from src.llm_client import chamar_llm_with_rate_limit
+
+        sqlite_backend = SQLiteIdempotencyBackend(
+            tmp_path / "idempotency_runtime.sqlite3",
+            ttl_seconds=24 * 3600,
+        )
+        monkeypatch.setattr("src.llm_client._get_idempotency_backend", lambda: sqlite_backend)
+        monkeypatch.setattr("src.llm_client.ENABLE_CACHING", False)
+        monkeypatch.setattr("src.llm_client.ENABLE_RATE_LIMITING", False)
+        monkeypatch.setattr(
+            "src.llm_client._get_token_manager",
+            lambda: type("FakeTokenManager", (), {"estimate_tokens": lambda self, *_args, **_kwargs: 32})(),
+        )
+
+        r1 = chamar_llm_with_rate_limit("sys", "user", request_id="req-sqlite", max_tokens=32)
+        r2 = chamar_llm_with_rate_limit("sys", "user", request_id="req-sqlite", max_tokens=32)
+
+        assert r1.content == "sqlite-idempotent"
+        assert r2.content == "sqlite-idempotent"
+        assert mock_client.chat.completions.create.call_count == 1
+
+
+class TestCircuitBreaker:
+    """Test circuit breaker behavior for repeated LLM API failures."""
+
+    @staticmethod
+    def _build_success_response(content: str = "ok") -> MagicMock:
+        choice = MagicMock()
+        choice.finish_reason = "stop"
+        choice.message.content = content
+
+        usage = MagicMock()
+        usage.prompt_tokens = 5
+        usage.completion_tokens = 3
+        usage.total_tokens = 8
+
+        response = MagicMock()
+        response.choices = [choice]
+        response.usage = usage
+        return response
+
+    @patch("src.llm_client._get_client")
+    def test_circuit_breaker_opens_and_blocks_next_call(self, mock_get_client, monkeypatch, caplog) -> None:
+        from src.llm_client import _chamar_llm_raw
+
+        breaker = CircuitBreaker(
+            failure_threshold=2,
+            reset_timeout_seconds=60,
+            time_fn=lambda: 100.0,
+        )
+        monkeypatch.setattr("src.llm_client.circuit_breaker", breaker)
+        monkeypatch.setattr("src.llm_client.LLM_MAX_RETRIES", 1)
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.side_effect = RuntimeError("api down")
+        mock_get_client.return_value = mock_client
+
+        with caplog.at_level("WARNING"):
+            with pytest.raises(LLMError):
+                _chamar_llm_raw("system", "user")
+            with pytest.raises(LLMError):
+                _chamar_llm_raw("system", "user")
+
+            with pytest.raises(LLMError, match="Circuit breaker OPEN"):
+                _chamar_llm_raw("system", "user")
+
+        assert breaker.state == CircuitBreakerState.OPEN
+        assert breaker.circuit_opens == 1
+        assert mock_client.chat.completions.create.call_count == 2
+        assert any("circuit_opened" in record.message for record in caplog.records)
+
+    @patch("src.llm_client._get_client")
+    def test_circuit_breaker_half_open_then_closes_on_success(
+        self,
+        mock_get_client,
+        monkeypatch,
+    ) -> None:
+        from src.llm_client import _chamar_llm_raw
+
+        clock = {"now": 0.0}
+
+        def fake_time() -> float:
+            return float(clock["now"])
+
+        breaker = CircuitBreaker(
+            failure_threshold=1,
+            reset_timeout_seconds=30,
+            time_fn=fake_time,
+        )
+        monkeypatch.setattr("src.llm_client.circuit_breaker", breaker)
+        monkeypatch.setattr("src.llm_client.LLM_MAX_RETRIES", 1)
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.side_effect = [
+            RuntimeError("api down"),
+            self._build_success_response("resposta recuperada"),
+        ]
+        mock_get_client.return_value = mock_client
+
+        with pytest.raises(LLMError):
+            _chamar_llm_raw("system", "user")
+
+        with pytest.raises(LLMError, match="Circuit breaker OPEN"):
+            _chamar_llm_raw("system", "user")
+
+        clock["now"] = 31.0
+        result = _chamar_llm_raw("system", "user")
+
+        assert result.content == "resposta recuperada"
+        assert breaker.state == CircuitBreakerState.CLOSED
+        assert breaker.circuit_opens == 1
+        assert breaker.circuit_half_opens == 1
+        assert mock_client.chat.completions.create.call_count == 2
 
 
 # --- 2.4.6: Integration test (slow, requires API key) ---
