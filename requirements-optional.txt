@@ -1,0 +1,3 @@
+# Optional semantic retrieval dependencies.
+# The production image keeps the linear fallback path to reduce deploy/build time.
+sentence-transformers>=3.0.0
