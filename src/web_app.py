@@ -31,6 +31,7 @@ from src.config import (
     JOB_TTL_HOURS,
     LLM_PROVIDER,
     MAX_UPLOAD_SIZE_MB,
+    MODEL_CLASSIFICATION,
     MODEL_LEGAL_ANALYSIS,
     OPENAI_API_KEY,
     OPENAI_MODEL,
@@ -85,6 +86,17 @@ def _get_default_model() -> str:
     if LLM_PROVIDER == "openai":
         return MODEL_LEGAL_ANALYSIS or OPENAI_MODEL
     return OPENAI_MODEL
+
+
+def _get_model_stack_label() -> str:
+    """Expose the fixed model stack shown in the web UI."""
+    if LLM_PROVIDER != "openai":
+        return _get_default_model()
+    classification_model = MODEL_CLASSIFICATION or _get_default_model()
+    analysis_model = _get_default_model()
+    if classification_model == analysis_model:
+        return analysis_model
+    return f"{analysis_model} + {classification_model}"
 
 
 def _friendly_error(exc: Exception) -> str:
@@ -216,7 +228,6 @@ def _is_supported_upload(filename: str) -> bool:
 
 def _run_pipeline_job(
     job_id: str,
-    modelo: str,
     formato: str,
     recurso_path: str,
     acordao_paths: list[str],
@@ -224,6 +235,7 @@ def _run_pipeline_job(
     upload_dir: str,
 ) -> None:
     """Execute pipeline in background thread and store result in _JOBS."""
+    modelo = _get_default_model()
     try:
         pipeline = PipelineAdmissibilidade(
             modelo=modelo,
@@ -363,6 +375,7 @@ def index() -> str:
         result=None,
         error=None,
         default_model=_get_default_model(),
+        model_stack_label=_get_model_stack_label(),
     )
 
 
@@ -401,6 +414,7 @@ def metrics() -> tuple[Response, int] | Response:
 @limiter.limit(lambda: f"{UPLOAD_RATE_LIMIT_PER_MINUTE}/minute")
 def processar() -> tuple[str, int] | str:
     """Handle upload and start pipeline in background."""
+    default_model = _get_default_model()
     erros_env = validate_environment_settings()
     if erros_env:
         return (
@@ -408,7 +422,8 @@ def processar() -> tuple[str, int] | str:
                 "web/index.html",
                 result=None,
                 error="Configuração de ambiente inválida. Revise o .env.",
-                default_model=request.form.get("modelo", _get_default_model()),
+                default_model=default_model,
+                model_stack_label=_get_model_stack_label(),
             ),
             400,
         )
@@ -422,7 +437,8 @@ def processar() -> tuple[str, int] | str:
                 "web/index.html",
                 result=None,
                 error=f"Configure {provider_name} no arquivo .env antes de processar.",
-                default_model=request.form.get("modelo", _get_default_model()),
+                default_model=default_model,
+                model_stack_label=_get_model_stack_label(),
             ),
             400,
         )
@@ -430,7 +446,6 @@ def processar() -> tuple[str, int] | str:
     recurso = request.files.get("recurso_pdf")
     acordaos = request.files.getlist("acordao_pdf")
     formato = request.form.get("formato", "md")
-    modelo = request.form.get("modelo", _get_default_model())
 
     if not recurso or not acordaos:
         return (
@@ -438,7 +453,8 @@ def processar() -> tuple[str, int] | str:
                 "web/index.html",
                 result=None,
                 error="Envie o recurso e pelo menos um arquivo de acórdão.",
-                default_model=modelo,
+                default_model=default_model,
+                model_stack_label=_get_model_stack_label(),
             ),
             400,
         )
@@ -449,7 +465,8 @@ def processar() -> tuple[str, int] | str:
                 "web/index.html",
                 result=None,
                 error="O limite é de 10 arquivos para o Acórdão.",
-                default_model=modelo,
+                default_model=default_model,
+                model_stack_label=_get_model_stack_label(),
             ),
             400,
         )
@@ -460,7 +477,8 @@ def processar() -> tuple[str, int] | str:
                 "web/index.html",
                 result=None,
                 error="Formato inválido no recurso. Envie arquivo .pdf ou .docx.",
-                default_model=modelo,
+                default_model=default_model,
+                model_stack_label=_get_model_stack_label(),
             ),
             400,
         )
@@ -479,7 +497,8 @@ def processar() -> tuple[str, int] | str:
                     + ", ".join(invalid_acordaos)
                     + ". Envie apenas .pdf ou .docx."
                 ),
-                default_model=modelo,
+                default_model=default_model,
+                model_stack_label=_get_model_stack_label(),
             ),
             400,
         )
@@ -516,14 +535,13 @@ def processar() -> tuple[str, int] | str:
             "result": None,
             "error": None,
             "finished_at": None,
-            "modelo": modelo,
+            "modelo": default_model,
         }
 
     thread = threading.Thread(
         target=_run_pipeline_job,
         args=(
             job_id,
-            modelo,
             formato,
             str(recurso_path),
             acordao_paths,
@@ -537,7 +555,7 @@ def processar() -> tuple[str, int] | str:
     return render_template(
         "web/processing.html",
         job_id=job_id,
-        default_model=modelo,
+        default_model=default_model,
     )
 
 
@@ -573,6 +591,7 @@ def resultado(job_id: str) -> tuple[str, int] | str:
                 result=None,
                 error="Job não encontrado.",
                 default_model=_get_default_model(),
+                model_stack_label=_get_model_stack_label(),
             ),
             404,
         )
@@ -583,6 +602,7 @@ def resultado(job_id: str) -> tuple[str, int] | str:
             result=None,
             error=job["error"],
             default_model=job.get("modelo", _get_default_model()),
+            model_stack_label=_get_model_stack_label(),
         )
 
     if job["status"] != "done":
@@ -604,6 +624,7 @@ def resultado(job_id: str) -> tuple[str, int] | str:
         result=result_with_urls,
         error=None,
         default_model=job.get("modelo", _get_default_model()),
+        model_stack_label=_get_model_stack_label(),
     )
 
 

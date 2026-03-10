@@ -25,6 +25,8 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(web_app, "LLM_PROVIDER", "openai")
     monkeypatch.setattr(web_app, "OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(web_app, "OPENROUTER_API_KEY", "")
+    monkeypatch.setattr(web_app, "MODEL_CLASSIFICATION", "gpt-4.1-mini")
+    monkeypatch.setattr(web_app, "MODEL_LEGAL_ANALYSIS", "gpt-4.1")
     monkeypatch.setattr(web_app, "ENABLE_WEB_DOWNLOAD_ACCESS_CONTROL", True)
     monkeypatch.setattr(web_app, "WEB_DOWNLOAD_TOKEN_TTL_SECONDS", 600)
     monkeypatch.setattr(web_app, "WEB_AUTH_ENABLED", False)
@@ -102,6 +104,8 @@ class TestWebAppRoutes:
         response = client.get("/")
         assert response.status_code == 200
         assert b"Enviar Documentos" in response.data
+        assert b'name="modelo"' not in response.data
+        assert b"Stack IA" in response.data
 
     def test_processar_requires_api_key(self, client, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(web_app, "OPENAI_API_KEY", "")
@@ -118,7 +122,6 @@ class TestWebAppRoutes:
         pdf = b"%PDF-1.4\n%mock\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
         data = {
             "formato": "md",
-            "modelo": "gpt-4o",
             "recurso_pdf": (BytesIO(pdf), "recurso.pdf"),
             "acordao_pdf": [(BytesIO(pdf), f"acordao_{i}.pdf") for i in range(11)],
         }
@@ -131,7 +134,6 @@ class TestWebAppRoutes:
         payload = b"dummy-content"
         data = {
             "formato": "md",
-            "modelo": "gpt-4o",
             "recurso_pdf": (BytesIO(payload), "recurso.txt"),
             "acordao_pdf": [(BytesIO(payload), "acordao_1.pdf")],
         }
@@ -143,6 +145,7 @@ class TestWebAppRoutes:
     def test_processar_success_renders_result(self, client, monkeypatch: pytest.MonkeyPatch) -> None:
         class FakePipeline:
             def __init__(self, modelo: str, formato_saida: str):
+                assert modelo == "gpt-4.1"
                 self.modelo = modelo
                 self.formato_saida = formato_saida
                 self.metricas: dict[str, Any] = {
@@ -167,7 +170,6 @@ class TestWebAppRoutes:
         pdf = b"%PDF-1.4\n%mock\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
         data = {
             "formato": "docx",
-            "modelo": "gpt-4o",
             "recurso_pdf": (BytesIO(pdf), "recurso.pdf"),
             "acordao_pdf": [(BytesIO(pdf), "acordao_1.pdf")],
         }
@@ -192,6 +194,7 @@ class TestWebAppRoutes:
     def test_processar_on_pipeline_error_returns_500(self, client, monkeypatch: pytest.MonkeyPatch) -> None:
         class FakePipelineError:
             def __init__(self, modelo: str, formato_saida: str):
+                assert modelo == "gpt-4.1"
                 self.metricas = {}
 
             def executar(self, pdfs: list[str], processo_id: str, continuar: bool):
@@ -210,7 +213,6 @@ class TestWebAppRoutes:
         pdf = b"%PDF-1.4\n%mock\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
         data = {
             "formato": "md",
-            "modelo": "gpt-4o",
             "recurso_pdf": (BytesIO(pdf), "recurso.pdf"),
             "acordao_pdf": [(BytesIO(pdf), "acordao_1.pdf")],
         }
