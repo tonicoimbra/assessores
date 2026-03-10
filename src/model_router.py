@@ -17,12 +17,12 @@ logger = logging.getLogger("assessor_ai")
 class TaskType(str, Enum):
     """Types of tasks for model routing."""
 
-    # Simple tasks - use gpt-4o-mini for cost savings
+    # Simple tasks - use GPT-4.1 mini for cost savings
     CLASSIFICATION = "classification"  # Document type classification
     PARSING = "parsing"  # Response parsing and extraction
     VALIDATION = "validation"  # Data validation checks
 
-    # Critical tasks - use gpt-4o for accuracy
+    # Critical tasks - use GPT-4.1 for accuracy
     LEGAL_ANALYSIS = "legal_analysis"  # Stages 1 & 2 analysis
     DRAFT_GENERATION = "draft_generation"  # Stage 3 draft generation
 
@@ -32,8 +32,8 @@ class ModelRouter:
     Route tasks to appropriate models based on complexity and criticality.
 
     Hybrid Strategy:
-    - Simple/auxiliary tasks → gpt-4o-mini (83% cost reduction)
-    - Critical legal analysis → gpt-4o (maintain quality)
+    - Simple/auxiliary tasks → GPT-4.1 mini
+    - Critical legal analysis → GPT-4.1
     - Overall savings: 60-80% on total costs
     """
 
@@ -45,7 +45,7 @@ class ModelRouter:
             TaskType.PARSING: MODEL_CLASSIFICATION,  # Same as classification
             TaskType.VALIDATION: MODEL_CLASSIFICATION,  # Same as classification
 
-            # Critical tasks → gpt-4o
+            # Critical tasks → GPT-4.1
             TaskType.LEGAL_ANALYSIS: MODEL_LEGAL_ANALYSIS,
             TaskType.DRAFT_GENERATION: MODEL_DRAFT_GENERATION,
         }
@@ -53,6 +53,8 @@ class ModelRouter:
         # Cost per 1M tokens (as of 2026)
         self.cost_per_1m = {
             # OpenAI models
+            "gpt-4.1": {"input": 2.00, "output": 8.00},
+            "gpt-4.1-mini": {"input": 0.15, "output": 0.60},
             "gpt-4o": {"input": 2.50, "output": 10.00},
             "gpt-4o-mini": {"input": 0.15, "output": 0.60},
             # OpenRouter models
@@ -74,7 +76,7 @@ class ModelRouter:
             task: Type of task to be performed.
 
         Returns:
-            Model name (e.g., "gpt-4o" or "gpt-4o-mini").
+            Model name (e.g., "gpt-4.1" or "gpt-4.1-mini").
         """
         if not ENABLE_HYBRID_MODELS:
             # Hybrid strategy disabled - use default model
@@ -103,33 +105,33 @@ class ModelRouter:
             analysis_tokens: Tokens used in legal analysis tasks.
 
         Returns:
-            Dict with cost comparison: all_gpt4o, hybrid, savings_usd, savings_pct.
+            Dict with cost comparison: all_gpt41, hybrid, savings_usd, savings_pct.
         """
         # Assume 20% input, 80% output ratio
         input_ratio = 0.2
         output_ratio = 0.8
 
-        # All gpt-4o cost
-        cost_all_gpt4o = (
-            (classification_tokens * input_ratio * self.cost_per_1m["gpt-4o"]["input"] / 1_000_000)
-            + (classification_tokens * output_ratio * self.cost_per_1m["gpt-4o"]["output"] / 1_000_000)
-            + (analysis_tokens * input_ratio * self.cost_per_1m["gpt-4o"]["input"] / 1_000_000)
-            + (analysis_tokens * output_ratio * self.cost_per_1m["gpt-4o"]["output"] / 1_000_000)
+        # All GPT-4.1 cost
+        cost_all_gpt41 = (
+            (classification_tokens * input_ratio * self.cost_per_1m["gpt-4.1"]["input"] / 1_000_000)
+            + (classification_tokens * output_ratio * self.cost_per_1m["gpt-4.1"]["output"] / 1_000_000)
+            + (analysis_tokens * input_ratio * self.cost_per_1m["gpt-4.1"]["input"] / 1_000_000)
+            + (analysis_tokens * output_ratio * self.cost_per_1m["gpt-4.1"]["output"] / 1_000_000)
         )
 
-        # Hybrid cost (mini for classification, gpt-4o for analysis)
+        # Hybrid cost (mini for classification, GPT-4.1 for analysis)
         cost_hybrid = (
-            (classification_tokens * input_ratio * self.cost_per_1m["gpt-4o-mini"]["input"] / 1_000_000)
-            + (classification_tokens * output_ratio * self.cost_per_1m["gpt-4o-mini"]["output"] / 1_000_000)
-            + (analysis_tokens * input_ratio * self.cost_per_1m["gpt-4o"]["input"] / 1_000_000)
-            + (analysis_tokens * output_ratio * self.cost_per_1m["gpt-4o"]["output"] / 1_000_000)
+            (classification_tokens * input_ratio * self.cost_per_1m["gpt-4.1-mini"]["input"] / 1_000_000)
+            + (classification_tokens * output_ratio * self.cost_per_1m["gpt-4.1-mini"]["output"] / 1_000_000)
+            + (analysis_tokens * input_ratio * self.cost_per_1m["gpt-4.1"]["input"] / 1_000_000)
+            + (analysis_tokens * output_ratio * self.cost_per_1m["gpt-4.1"]["output"] / 1_000_000)
         )
 
-        savings_usd = cost_all_gpt4o - cost_hybrid
-        savings_pct = (savings_usd / cost_all_gpt4o * 100) if cost_all_gpt4o > 0 else 0
+        savings_usd = cost_all_gpt41 - cost_hybrid
+        savings_pct = (savings_usd / cost_all_gpt41 * 100) if cost_all_gpt41 > 0 else 0
 
         return {
-            "all_gpt4o": round(cost_all_gpt4o, 4),
+            "all_gpt41": round(cost_all_gpt41, 4),
             "hybrid": round(cost_hybrid, 4),
             "savings_usd": round(savings_usd, 4),
             "savings_pct": round(savings_pct, 1),
@@ -142,9 +144,9 @@ class ModelRouter:
             return
 
         logger.info("💰 Hybrid model strategy enabled:")
-        logger.info("  • Classification/Parsing: %s (83%% cheaper)", MODEL_CLASSIFICATION)
-        logger.info("  • Legal Analysis: %s (high accuracy)", MODEL_LEGAL_ANALYSIS)
-        logger.info("  • Draft Generation: %s (high quality)", MODEL_DRAFT_GENERATION)
+        logger.info("  • Classification/Parsing: %s (menor custo)", MODEL_CLASSIFICATION)
+        logger.info("  • Legal Analysis: %s (maior rigor)", MODEL_LEGAL_ANALYSIS)
+        logger.info("  • Draft Generation: %s (alta qualidade)", MODEL_DRAFT_GENERATION)
         logger.info("  • Expected savings: 60-80%% on auxiliary tasks")
 
 

@@ -31,7 +31,9 @@ from src.config import (
     JOB_TTL_HOURS,
     LLM_PROVIDER,
     MAX_UPLOAD_SIZE_MB,
+    MODEL_LEGAL_ANALYSIS,
     OPENAI_API_KEY,
+    OPENAI_MODEL,
     OPENROUTER_API_KEY,
     OUTPUTS_DIR,
     UPLOAD_RATE_LIMIT_PER_MINUTE,
@@ -80,9 +82,9 @@ def _get_api_key() -> str:
 
 def _get_default_model() -> str:
     """Get default model based on provider."""
-    if LLM_PROVIDER == "openrouter":
-        return "qwen/qwen3-235b-a22b-2507"
-    return "gpt-4.1"
+    if LLM_PROVIDER == "openai":
+        return MODEL_LEGAL_ANALYSIS or OPENAI_MODEL
+    return OPENAI_MODEL
 
 
 def _friendly_error(exc: Exception) -> str:

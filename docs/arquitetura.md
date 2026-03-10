@@ -5,7 +5,7 @@
 | Componente | Tecnologia | Justificativa |
 |------------|------------|---------------|
 | Linguagem | Python 3.11+ | Ecossistema maduro para IA e automação |
-| LLM | OpenAI API (GPT-4o) | Contexto longo (128k tokens), qualidade de análise |
+| LLM | OpenAI API (GPT-4.1 + GPT-4.1 mini) | Qualidade jurídica no núcleo e menor custo nas tarefas auxiliares |
 | Extração de PDF | PyMuPDF (fitz) + pdfplumber | Robustez com PDFs escaneados e fracionados |
 | Prompt | Arquivo `.md` separado | Iteração rápida sem alterar código |
 | Interface | CLI (fase 1), API (fase 2) | Validação rápida, depois exposição como serviço |
@@ -52,7 +52,7 @@ Classificação (heurística textual → fallback LLM)
 | Variável | Descrição | Default |
 |----------|-----------|---------|
 | `OPENAI_API_KEY` | Chave da API OpenAI | — (obrigatória) |
-| `OPENAI_MODEL` | Modelo a usar | `gpt-4o` |
+| `OPENAI_MODEL` | Modelo a usar | `gpt-4.1` |
 | `MAX_TOKENS` | Limite de tokens por chamada | — |
 | `TEMPERATURE` | Temperatura da geração | `0.1` |
 | `LOG_LEVEL` | Nível de logging | — |

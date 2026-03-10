@@ -32,7 +32,7 @@ class TokenManager:
         self._limits: dict[str, int] = {}
         self._encoding_cache: dict[str, Any] = {}
 
-    def estimate_tokens(self, text: str, model: str = "gpt-4o") -> int:
+    def estimate_tokens(self, text: str, model: str = "gpt-4.1") -> int:
         """
         Estimate token count using tiktoken.
 
@@ -150,7 +150,7 @@ class TextChunker:
             re.IGNORECASE,
         )
 
-    def chunk_text(self, text: str, model: str = "gpt-4o") -> list[str]:
+    def chunk_text(self, text: str, model: str = "gpt-4.1") -> list[str]:
         """
         Divide text into semantic chunks with overlap.
 
@@ -170,7 +170,7 @@ class TextChunker:
         chunks, _ = self.chunk_text_with_coverage(text, model=model)
         return chunks
 
-    def chunk_text_with_coverage(self, text: str, model: str = "gpt-4o") -> tuple[list[str], dict[str, Any]]:
+    def chunk_text_with_coverage(self, text: str, model: str = "gpt-4.1") -> tuple[list[str], dict[str, Any]]:
         """Divide text into semantic chunks and return an auditable coverage map."""
         total_tokens = self.token_manager.estimate_tokens(text, model)
         total_chars = len(text)
@@ -393,7 +393,7 @@ class TextChunker:
         return split_units
 
 
-    def chunk_by_sections(self, text: str, model: str = "gpt-4o") -> dict[str, str]:
+    def chunk_by_sections(self, text: str, model: str = "gpt-4.1") -> dict[str, str]:
         """
         Divide text by legal document sections (EMENTA, RELATÓRIO, VOTO, DISPOSITIVO).
 

@@ -71,7 +71,7 @@ ETAPA1_RESPONSE_SCHEMA: types.MappingProxyType = types.MappingProxyType(
 # --- 3.3.1 / 3.3.2 Context management ---
 
 
-def estimar_tokens(texto: str, modelo: str = "gpt-4o") -> int:
+def estimar_tokens(texto: str, modelo: str = "gpt-4.1") -> int:
     """Estimate token count using tiktoken (with encoding cache)."""
     return _token_manager.estimate_tokens(texto, modelo)
 
@@ -1233,7 +1233,11 @@ def executar_etapa1_com_chunking(
     # Import chunker (lazy to avoid circular imports)
     from src.token_manager import text_chunker
 
-    chunks, coverage_report = text_chunker.chunk_text_with_coverage(texto_recurso, model="gpt-4o")
+    chunk_model = modelo_override or get_model_for_task(TaskType.LEGAL_ANALYSIS)
+    chunks, coverage_report = text_chunker.chunk_text_with_coverage(
+        texto_recurso,
+        model=chunk_model,
+    )
     if chunking_audit is not None:
         chunking_audit.update(coverage_report)
         chunking_audit["limite_seguro"] = limite_seguro

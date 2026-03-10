@@ -1157,7 +1157,11 @@ def executar_etapa3_com_chunking(
     original_max = text_chunker.max_tokens
     text_chunker.max_tokens = effective_limit
 
-    chunks, coverage_report = text_chunker.chunk_text_with_coverage(texto_acordao, model="gpt-4o")
+    chunk_model = modelo_override or get_model_for_task(TaskType.DRAFT_GENERATION)
+    chunks, coverage_report = text_chunker.chunk_text_with_coverage(
+        texto_acordao,
+        model=chunk_model,
+    )
     text_chunker.max_tokens = original_max  # Restore
     if chunking_audit is not None:
         chunking_audit.update(coverage_report)

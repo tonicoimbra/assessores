@@ -23,7 +23,7 @@ LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai")
 
 # OpenAI settings
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o")
+OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4.1")
 MAX_TOKENS: int = int(os.getenv("MAX_TOKENS", "2048"))
 MAX_TOKENS_CEILING: int = int(os.getenv("MAX_TOKENS_CEILING", "12000"))
 TEMPERATURE: float = float(os.getenv("TEMPERATURE", "0.0"))

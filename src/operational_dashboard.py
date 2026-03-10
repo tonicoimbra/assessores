@@ -292,7 +292,7 @@ def _build_dashboard_payload(
         prompt_tokens = int(metadata.get("prompt_tokens", 0) or 0)
         completion_tokens = int(metadata.get("completion_tokens", 0) or 0)
         total_tokens = int(metadata.get("total_tokens", 0) or 0)
-        modelo = str(metadata.get("modelo_usado") or "gpt-4o")
+        modelo = str(metadata.get("modelo_usado") or "gpt-4.1")
 
         duration_s = _calc_duration_seconds(metadata)
         durations.append(duration_s)

@@ -36,7 +36,7 @@ from src.token_manager import token_manager as _token_manager
 logger = logging.getLogger("assessor_ai")
 
 
-def estimar_tokens(texto: str, modelo: str = "gpt-4o") -> int:
+def estimar_tokens(texto: str, modelo: str = "gpt-4.1") -> int:
     """Estimate token count using tiktoken (with encoding cache)."""
     return _token_manager.estimate_tokens(texto, modelo)
 
@@ -932,7 +932,11 @@ def executar_etapa2_com_chunking(
     original_max = text_chunker.max_tokens
     text_chunker.max_tokens = effective_limit
 
-    chunks, coverage_report = text_chunker.chunk_text_with_coverage(texto_acordao, model="gpt-4o")
+    chunk_model = modelo_override or get_model_for_task(TaskType.LEGAL_ANALYSIS)
+    chunks, coverage_report = text_chunker.chunk_text_with_coverage(
+        texto_acordao,
+        model=chunk_model,
+    )
     text_chunker.max_tokens = original_max  # Restore
     if chunking_audit is not None:
         chunking_audit.update(coverage_report)
