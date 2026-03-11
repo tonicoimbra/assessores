@@ -1,6 +1,8 @@
 # Referências Longas — Pressupostos e Catálogo de Óbices
 
 > Este bloco é opcional e deve ser injetado preferencialmente apenas em perfil `full`.
+> **Versão:** 2.3.0
+> **Última atualização:** 2026-03-11
 
 ## Pressupostos Recursais (referência)
 1. Tempestividade (art. 1.003, §5º, CPC).

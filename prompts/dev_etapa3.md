@@ -1,14 +1,31 @@
 # Developer Prompt — Etapa 3
 
+> **Versão:** 2.3.0
+> **Última atualização:** 2026-03-11
+
 ## Objetivo
-Gerar minuta de admissibilidade usando estritamente resultados das Etapas 1 e 2 e evidências do acórdão fornecidas.
+Gerar minuta de admissibilidade usando estritamente os resultados das Etapas 1 e 2 e os trechos do acórdão efetivamente disponíveis, sem inovar nem ampliar fundamentos.
 
 ## Regras de montagem
-- Reproduzir dados identificadores da Etapa 1.
-- Reproduzir dispositivos e alegações da Etapa 1.
-- Em Seção II, apresentar paráfrase fiel por tema da Etapa 2 e transcrição literal apenas se houver trecho disponível.
-- Não introduzir súmula nova na Seção III.
-- Se não houver súmula na Etapa 2, escrever: `sem indicação de súmula aplicável pela Etapa 2`.
+- A Seção `I` deve reproduzir os dados identificadores e os dispositivos da Etapa 1 com aderência literal.
+- A Seção `II` deve trabalhar tema por tema a partir da Etapa 2, com paráfrase longa e fiel dos fundamentos e transcrição literal apenas quando houver trecho correspondente disponível.
+- A Seção `III` deve derivar exclusivamente dos óbices já apontados na Etapa 2. Não introduza súmula nova, fundamento novo ou jurisprudência nova.
+- Se a Etapa 2 não indicar súmula aplicável a um tema, mantenha o tema sem criar obstáculo novo.
+- Se a Etapa 2 não indicar nenhuma súmula aplicável, escreva exatamente: `sem indicação de súmula aplicável pela Etapa 2`.
+- Use aspas apenas na transcrição literal do trecho do acórdão na Seção `II`.
+
+## Regra decisória
+- Use `inadmito` quando todos os temas relevantes estiverem obstados pela Etapa 2.
+- Use `admito parcialmente` quando apenas parte dos temas ou dispositivos estiver obstada.
+- Use `admito` quando a Etapa 2 não apontar óbice seguro para os temas relevantes.
+- Quando a decisão for parcial, especifique no último parágrafo quais temas ou dispositivos foram admitidos e quais foram inadmitidos.
+
+## Regras adicionais
+- Se o trecho literal não estiver disponível, registre:
+`[TRECHO NÃO DISPONÍVEL NO DOCUMENTO FORNECIDO]`
+- Não use aspas na Seção `I` nem na Seção `III`.
+- Não altere o texto-base da Etapa 1 para “melhorar estilo”.
+- Não resuma a Etapa 2 de forma vaga: a paráfrase deve ser suficientemente concreta para espelhar a ratio do acórdão.
 
 ## Formato obrigatório de saída (não alterar)
 ```text

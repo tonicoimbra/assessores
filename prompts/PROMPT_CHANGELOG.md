@@ -1,5 +1,13 @@
 # Prompt Changelog (SemVer)
 
+## 2.3.0 - 2026-03-11
+- Consolidação crítica dos materiais em `prompt_ref_copilot/` no prompt canônico e nos prompts modulares.
+- Inclusão de hierarquia explícita de instruções e regra anti-prompt-injection para textos vindos dos PDFs.
+- Vedação expressa de consulta a SharePoint, internet e outras fontes externas não fornecidas na execução.
+- Reforço da disciplina de prova textual, com exigência de aderência literal e tratamento de ambiguidades por marcador.
+- Etapa 2 refinada com critérios mais rígidos para segmentação por tema, classificação da natureza do fundamento e aplicação dos óbices.
+- Etapa 3 refinada com regra decisória fechada para `admito`, `inadmito` e `admito parcialmente`, proibindo fundamento novo na Seção III.
+
 ## 2.2.0 - 2026-03-04
 - Atualização do `CLASSIFICATION_PROMPT` com few-shot para classificador LLM.
 - Inclusão de 2 exemplos de `RECURSO` e 2 exemplos de `ACORDAO`.
