@@ -42,6 +42,7 @@ from src.config import (
     WEB_DOWNLOAD_TOKEN_TTL_SECONDS,
     validate_environment_settings,
 )
+from src.cache_manager import cache_manager
 from src.operational_dashboard import obter_metricas_operacionais
 from src.pipeline import PipelineAdmissibilidade, handle_pipeline_error
 from src.retention_manager import aplicar_politica_retencao
@@ -68,7 +69,6 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_SIZE_MB * 1024 * 1024
 UPLOADS_DIR = OUTPUTS_DIR / "web_uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
-_DOWNLOAD_TOKENS: dict[str, dict[str, Any]] = {}
 _JOBS: dict[str, dict[str, Any]] = {}
 _JOBS_LOCK = threading.Lock()
 _SUPPORTED_UPLOAD_EXTENSIONS: set[str] = {".pdf", ".docx"}
@@ -178,18 +178,6 @@ def require_auth(view: Callable[..., Response | str]) -> Callable[..., Response 
     return wrapper
 
 
-def _purge_expired_download_tokens() -> None:
-    """Drop expired download tokens from in-memory store."""
-    now = time.time()
-    expired = [
-        token
-        for token, meta in _DOWNLOAD_TOKENS.items()
-        if float(meta.get("expires_at", 0)) <= now
-    ]
-    for token in expired:
-        _DOWNLOAD_TOKENS.pop(token, None)
-
-
 def _build_download_url(path: str) -> str:
     """Build protected download URL for generated artifact."""
     normalized = str(path or "").strip()
@@ -198,12 +186,22 @@ def _build_download_url(path: str) -> str:
     if not ENABLE_WEB_DOWNLOAD_ACCESS_CONTROL:
         return f"/download?path={normalized}"
 
-    _purge_expired_download_tokens()
     token = uuid4().hex
-    _DOWNLOAD_TOKENS[token] = {
+    
+    # Armazena estado persistente em disco com cache_manager suportando múltiplos Gunicorn workers
+    # Customizando temporariamente o TTL da instância atual 
+    original_ttl = cache_manager.ttl_seconds
+    cache_manager.ttl_seconds = max(60, int(WEB_DOWNLOAD_TOKEN_TTL_SECONDS))
+    
+    payload = {
         "path": normalized,
-        "expires_at": time.time() + max(60, int(WEB_DOWNLOAD_TOKEN_TTL_SECONDS)),
+        "expires_at": time.time() + cache_manager.ttl_seconds
     }
+    cache_manager.set(token, payload, category="web_dl_tokens")
+    
+    # Restaura TTL
+    cache_manager.ttl_seconds = original_ttl
+    
     return f"/download?token={token}"
 
 
@@ -634,13 +632,22 @@ def download() -> tuple[str, int] | Response:
     """Download generated files from outputs directory."""
     raw_path = ""
     if ENABLE_WEB_DOWNLOAD_ACCESS_CONTROL:
-        _purge_expired_download_tokens()
+        # Usa o cache_manager persistido já que memória não passa de um worker para outro
         token = str(request.args.get("token", "") or "").strip()
         if not token:
             return "Token de download ausente.", 403
-        token_payload = _DOWNLOAD_TOKENS.pop(token, None)
+            
+        token_payload = cache_manager.get(token, category="web_dl_tokens")
         if not token_payload:
             return "Token de download inválido ou expirado.", 403
+            
+        # Invalidamos após o uso único pra maior segurança
+        cache_manager.invalidate(token, category="web_dl_tokens")
+        
+        # Validar expiração por precaução dupla (apesar do cache_manager já fazer .get())
+        if time.time() > float(token_payload.get("expires_at", 0)):
+             return "Token de download expirado.", 403
+             
         raw_path = str(token_payload.get("path") or "")
     else:
         raw_path = request.args.get("path", "")
