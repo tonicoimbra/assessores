@@ -19,7 +19,7 @@ OUTPUTS_DIR = BASE_DIR / "outputs"
 load_dotenv(BASE_DIR / ".env")
 
 # LLM Provider (openai | openrouter)
-LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai")
+LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openrouter")
 
 # OpenAI settings
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
@@ -135,9 +135,9 @@ ENABLE_ETAPA1_CRITICAL_FIELDS_CONSENSUS: bool = (
 )
 
 # Hybrid model configuration
-MODEL_CLASSIFICATION: str = os.getenv("MODEL_CLASSIFICATION", "gpt-4.1-mini")
-MODEL_LEGAL_ANALYSIS: str = os.getenv("MODEL_LEGAL_ANALYSIS", "gpt-4.1")
-MODEL_DRAFT_GENERATION: str = os.getenv("MODEL_DRAFT_GENERATION", "gpt-4.1")
+MODEL_CLASSIFICATION: str = os.getenv("MODEL_CLASSIFICATION", "google/gemini-2.0-flash-001")
+MODEL_LEGAL_ANALYSIS: str = os.getenv("MODEL_LEGAL_ANALYSIS", "google/gemini-2.5-flash-preview")
+MODEL_DRAFT_GENERATION: str = os.getenv("MODEL_DRAFT_GENERATION", "google/gemini-2.0-flash-001")
 
 # Input invariants for classification
 REQUIRE_EXACTLY_ONE_RECURSO: bool = os.getenv("REQUIRE_EXACTLY_ONE_RECURSO", "true").lower() == "true"
