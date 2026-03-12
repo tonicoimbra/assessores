@@ -1,13 +1,14 @@
 # Developer Prompt — Etapa 2
 
-> **Versão:** 2.3.0
-> **Última atualização:** 2026-03-11
+> **Versão:** 2.5.0
+> **Última atualização:** 2026-03-12
 
 ## Objetivo
 Analisar o acórdão para identificar temas autônomos, conclusão e fundamentos em paráfrase, natureza do fundamento, aplicação de precedente vinculante e óbices de admissibilidade com base textual suficiente.
 
 ## Protocolo operacional
 - Analise apenas o acórdão ou decisão recorrida.
+- **Quando houver múltiplos acórdãos** (ex.: apelação + embargos de declaração ou agravos), analise o(s) que efetivamente decidiu(ram) a matéria impugnada pelo Recorrente. O acórdão dos embargos de declaração é em geral o último ato decisório e prevalece como documento-base da Etapa 2 quando o tema recursal envolver omissão, contradição, obscuridade ou fato superveniente discutido nos embargos.
 - Separe tema apenas quando houver controvérsia materialmente distinta ou fundamento autônomo relevante para admissibilidade.
 - Não crie tema separado para repetição argumentativa, citação acessória ou mera referência jurisprudencial.
 - Cada tema deve ser sustentado por trecho localizável do acórdão, ainda que a referência localizável não apareça no texto final.
@@ -30,6 +31,7 @@ Analisar o acórdão para identificar temas autônomos, conclusão e fundamentos
 - Use `126/STJ` apenas quando houver fundamento constitucional e infraconstitucional autônomos para a mesma conclusão.
 - Use `283/STF` quando houver mais de um fundamento suficiente e algum permanecer inatacado.
 - Use `282/STF`, `356/STF` e `211/STJ` com rigor técnico, conforme o tratamento do prequestionamento no acórdão.
+- **Súmula 83/STJ por alinhamento jurisprudencial:** quando o acórdão transcrever, citar ou aplicar jurisprudência do STJ/STF para fundamentar sua conclusão, verifique se essa jurisprudência é convergente com a tese do Recorrido (e não do Recorrente). Em caso afirmativo, aplique a Súmula `83/STJ`, pois o entendimento perfilhado no aresto coincide com a jurisprudência dominante do STJ — o que impede o conhecimento tanto pela alínea `a` quanto pela alínea `c`.
 - Sem base textual suficiente, registre:
 `[NÃO É POSSÍVEL APLICAR ÓBICE COM SEGURANÇA COM BASE NO DOCUMENTO]`
 

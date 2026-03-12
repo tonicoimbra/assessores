@@ -1,5 +1,20 @@
 # Prompt Changelog (SemVer)
 
+## 2.5.0 - 2026-03-12
+- Refinamento baseado em comparativo de minutas (processo 0008861-22.2024.8.16.0160).
+- Etapa 1: vedação explícita de incluir conteúdo do acórdão ou das contrarrazões na saída.
+- Etapa 2: regra de prioridade de acórdão mais recente (embargos de declaração > apelação) quando o tema recursal for decidido nos embargos.
+- Etapa 2: regra da Súmula `83/STJ` por alinhamento jurisprudencial — quando o acórdão citar/aplicar jurisprudência do STJ/STF convergente com o recorrido.
+
+## 2.4.0 - 2026-03-12
+- Auditoria de integridade contra `prompt_ref_copilot/` e prompts modulares.
+- Adição da Súmula `123/STJ` ausente no catálogo do `SYSTEM_PROMPT.md` (legado).
+- Regra de expansão de siglas adicionada nas convenções de redação.
+- Vedação explícita de aspas nas Seções I e III da Etapa 3.
+- Proteção contra alteração de estilo no texto-base da Etapa 1 (Seção I → Etapa 3).
+- Refinamento da regra de segmentação temática na Etapa 2 (alinhado com `dev_etapa2.md`).
+- Regra de fallback por marcador para extração insegura de tema/óbice (Etapa 2).
+
 ## 2.3.0 - 2026-03-11
 - Consolidação crítica dos materiais em `prompt_ref_copilot/` no prompt canônico e nos prompts modulares.
 - Inclusão de hierarquia explícita de instruções e regra anti-prompt-injection para textos vindos dos PDFs.
