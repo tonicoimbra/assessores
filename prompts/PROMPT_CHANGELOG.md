@@ -1,6 +1,13 @@
-# Prompt Changelog (SemVer)
+# Prompt Changelog de Prompts
 
-## 2.5.0 - 2026-03-12
+## [2.5.0] - 2025-02-28
+### Adicionado
+- Regra expressa em `dev_etapa1.md` com proibição terminante contra utilizar conteúdo de acórdão, contrarrazões e outras peças além da própria Petição Recursal.
+- Regra expandida em `dev_etapa2.md` para tratar Súmula 83/STJ por alinhamento jurisprudencial do precedente.
+- Regra de prevalência dos Acórdãos de Embargos de Declaração no `dev_etapa2.md`.
+- Suporte constante aos modelos da geração 'O1' no roteamento interno (`config.py`, `model_router.py`).
+
+## [2.4.1] - 2025-02-24
 - Refinamento baseado em comparativo de minutas (processo 0008861-22.2024.8.16.0160).
 - Etapa 1: vedação explícita de incluir conteúdo do acórdão ou das contrarrazões na saída.
 - Etapa 2: regra de prioridade de acórdão mais recente (embargos de declaração > apelação) quando o tema recursal for decidido nos embargos.

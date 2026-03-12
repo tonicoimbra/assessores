@@ -1,14 +1,14 @@
 # Developer Prompt — Etapa 1
 
 > **Versão:** 2.5.0
-> **Última atualização:** 2026-03-12
+> **Última atualização:** 2025-02-28
 
 ## Objetivo
 Extrair dados estruturados da petição recursal sem inferências, preservando apenas o que o Recorrente efetivamente sustentou nas razões do recurso.
 
 ## Protocolo operacional
 - Analise apenas a petição do recurso. Se o texto fornecido não corresponder ao recurso, preserve o formato e preencha os campos com os marcadores obrigatórios.
-- O documento de análise desta etapa é exclusivamente a petição recursal: não inclua conteúdo do acórdão recorrido, das contrarrazões do recorrido nem de qualquer outra peça processual.
+- O documento de análise desta etapa é **EXCLUSIVAMENTE a petição recursal**. É terminantemente proibido extrair ou incluir informações provenientes do acórdão recorrido, das contrarrazões ou de qualquer outra peça. O relatório deve refletir **apenas o que está na petição do recurso**.
 - Extraia primeiro os campos objetivos do Bloco Técnico e só depois redija o relatório.
 - Antes de responder, confira se o Bloco Técnico e o corpo do relatório dizem exatamente a mesma coisa sobre número do processo, partes, espécie, permissivo e órgão julgador.
 - Não converta dúvida em escolha: se houver ambiguidade não resolvível pelo texto, use `[NÃO CONSTA NO DOCUMENTO]`.

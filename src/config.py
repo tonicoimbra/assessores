@@ -24,6 +24,7 @@ LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openrouter")
 # OpenAI settings
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4.1")
+O1_MODEL: str = os.getenv("O1_MODEL", "o1-mini")
 MAX_TOKENS: int = int(os.getenv("MAX_TOKENS", "2048"))
 MAX_TOKENS_CEILING: int = int(os.getenv("MAX_TOKENS_CEILING", "12000"))
 TEMPERATURE: float = float(os.getenv("TEMPERATURE", "0.0"))
@@ -103,7 +104,8 @@ RATE_LIMIT_TPM: dict[str, int] = {
     "gpt-4.1": 30_000,
     "gpt-4.1-mini": 200_000,
     "gpt-4o-mini": 200_000,
-    "o1-preview": 30_000, # Assuming this is an OpenAI model or similar
+    "o1-preview": 30_000,
+    "o1-mini": 100_000,
     # OpenRouter (generous limits)
     "deepseek/deepseek-r1": 100_000,
     "deepseek/deepseek-chat-v3-0324:free": 40_000, # Adjusted from 50k to 40k

@@ -22,7 +22,7 @@ class TaskType(str, Enum):
     PARSING = "parsing"  # Response parsing and extraction
     VALIDATION = "validation"  # Data validation checks
 
-    # Critical tasks - use GPT-4.1 for accuracy
+    # Critical tasks - use OPENAI_MODEL or O1_MODEL for accuracy
     LEGAL_ANALYSIS = "legal_analysis"  # Stages 1 & 2 analysis
     DRAFT_GENERATION = "draft_generation"  # Stage 3 draft generation
 
@@ -32,8 +32,8 @@ class ModelRouter:
     Route tasks to appropriate models based on complexity and criticality.
 
     Hybrid Strategy:
-    - Simple/auxiliary tasks → GPT-4.1 mini
-    - Critical legal analysis → GPT-4.1
+    - Simple/auxiliary tasks → Mini / Fast model
+    - Critical legal analysis → Advanced Model (e.g. GPT-4o, O1-mini)
     - Overall savings: 60-80% on total costs
     """
 
@@ -45,7 +45,7 @@ class ModelRouter:
             TaskType.PARSING: MODEL_CLASSIFICATION,  # Same as classification
             TaskType.VALIDATION: MODEL_CLASSIFICATION,  # Same as classification
 
-            # Critical tasks → GPT-4.1
+            # Critical tasks → Advanced Model
             TaskType.LEGAL_ANALYSIS: MODEL_LEGAL_ANALYSIS,
             TaskType.DRAFT_GENERATION: MODEL_DRAFT_GENERATION,
         }
@@ -57,6 +57,8 @@ class ModelRouter:
             "gpt-4.1-mini": {"input": 0.15, "output": 0.60},
             "gpt-4o": {"input": 2.50, "output": 10.00},
             "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+            "o1-preview": {"input": 15.00, "output": 60.00},
+            "o1-mini": {"input": 3.00, "output": 12.00},
             # OpenRouter models
             "deepseek/deepseek-r1": {"input": 0.55, "output": 2.19},
             "deepseek/deepseek-chat-v3-0324:free": {"input": 0.00, "output": 0.00},
@@ -111,27 +113,26 @@ class ModelRouter:
         input_ratio = 0.2
         output_ratio = 0.8
 
-        # All GPT-4.1 cost
-        cost_all_gpt41 = (
-            (classification_tokens * input_ratio * self.cost_per_1m["gpt-4.1"]["input"] / 1_000_000)
-            + (classification_tokens * output_ratio * self.cost_per_1m["gpt-4.1"]["output"] / 1_000_000)
-            + (analysis_tokens * input_ratio * self.cost_per_1m["gpt-4.1"]["input"] / 1_000_000)
-            + (analysis_tokens * output_ratio * self.cost_per_1m["gpt-4.1"]["output"] / 1_000_000)
+        # Custo do modelo default vs modelo fallback (se híbrido)
+        cost_all_default = (
+            (classification_tokens * input_ratio * self.cost_per_1m.get(OPENAI_MODEL, self.cost_per_1m["gpt-4.1"])["input"] / 1_000_000)
+            + (classification_tokens * output_ratio * self.cost_per_1m.get(OPENAI_MODEL, self.cost_per_1m["gpt-4.1"])["output"] / 1_000_000)
+            + (analysis_tokens * input_ratio * self.cost_per_1m.get(OPENAI_MODEL, self.cost_per_1m["gpt-4.1"])["input"] / 1_000_000)
+            + (analysis_tokens * output_ratio * self.cost_per_1m.get(OPENAI_MODEL, self.cost_per_1m["gpt-4.1"])["output"] / 1_000_000)
         )
 
-        # Hybrid cost (mini for classification, GPT-4.1 for analysis)
         cost_hybrid = (
-            (classification_tokens * input_ratio * self.cost_per_1m["gpt-4.1-mini"]["input"] / 1_000_000)
-            + (classification_tokens * output_ratio * self.cost_per_1m["gpt-4.1-mini"]["output"] / 1_000_000)
-            + (analysis_tokens * input_ratio * self.cost_per_1m["gpt-4.1"]["input"] / 1_000_000)
-            + (analysis_tokens * output_ratio * self.cost_per_1m["gpt-4.1"]["output"] / 1_000_000)
+            (classification_tokens * input_ratio * self.cost_per_1m.get(MODEL_CLASSIFICATION, self.cost_per_1m["gpt-4.1-mini"])["input"] / 1_000_000)
+            + (classification_tokens * output_ratio * self.cost_per_1m.get(MODEL_CLASSIFICATION, self.cost_per_1m["gpt-4.1-mini"])["output"] / 1_000_000)
+            + (analysis_tokens * input_ratio * self.cost_per_1m.get(MODEL_LEGAL_ANALYSIS, self.cost_per_1m["gpt-4.1"])["input"] / 1_000_000)
+            + (analysis_tokens * output_ratio * self.cost_per_1m.get(MODEL_LEGAL_ANALYSIS, self.cost_per_1m["gpt-4.1"])["output"] / 1_000_000)
         )
 
-        savings_usd = cost_all_gpt41 - cost_hybrid
-        savings_pct = (savings_usd / cost_all_gpt41 * 100) if cost_all_gpt41 > 0 else 0
+        savings_usd = cost_all_default - cost_hybrid
+        savings_pct = (savings_usd / cost_all_default * 100) if cost_all_default > 0 else 0
 
         return {
-            "all_gpt41": round(cost_all_gpt41, 4),
+            "all_default": round(cost_all_default, 4),
             "hybrid": round(cost_hybrid, 4),
             "savings_usd": round(savings_usd, 4),
             "savings_pct": round(savings_pct, 1),
